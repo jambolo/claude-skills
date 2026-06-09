@@ -1,0 +1,147 @@
+# @PROJECT_NAME@ Project
+
+cmake_minimum_required(VERSION 3.23)
+project(@PROJECT_NAME@
+    LANGUAGES CXX
+    VERSION 0.1.0
+    DESCRIPTION "@PROJECT_DESCRIPTION@"
+)
+
+# Modern CMake policy settings
+cmake_policy(SET CMP0077 NEW)  # option() honors normal variables
+cmake_policy(SET CMP0135 NEW)  # DOWNLOAD_EXTRACT_TIMESTAMP option
+
+# Feature requirements
+include(CMakeDependentOption)
+
+# Project-wide build options
+option(BUILD_SHARED_LIBS "Build libraries as shared libraries" OFF)
+
+# Only enable testing and packaging when this is the main project
+set(IS_TOP_LEVEL_PROJECT OFF)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    set(IS_TOP_LEVEL_PROJECT ON)
+endif()
+
+cmake_dependent_option(@PROJECT_NAME@_BUILD_TESTS
+    "Build and run tests"
+    OFF
+    "IS_TOP_LEVEL_PROJECT"
+    OFF
+)
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
+#########################################################################
+# Project-wide build settings                                           #
+#########################################################################
+
+# C++ standard requirements
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Compiler-specific options
+if(MSVC)
+    add_compile_options(/W4)
+    add_compile_definitions(
+        NOMINMAX
+        WIN32_LEAN_AND_MEAN
+        VC_EXTRALEAN
+        _CRT_SECURE_NO_WARNINGS
+        _SECURE_SCL=0
+        _SCL_SECURE_NO_WARNINGS
+    )
+else()
+    add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+#########################################################################
+# Dependencies                                                          #
+#########################################################################
+
+if (${PROJECT_NAME}_BUILD_TESTING)
+    include(FetchContent)
+    FetchContent_Declare(
+        GoogleTest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        v1.17.0
+    )
+    FetchContent_MakeAvailable(GoogleTest)
+endif()
+
+# find_package(nlohmann_json REQUIRED)
+# include(FetchContent)
+# FetchContent_Declare(
+#     CLI11
+#     GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
+#     GIT_TAG        v2.4.2
+# )
+# FetchContent_MakeAvailable(CLI11)
+
+# include(FetchContent)
+# FetchContent_Declare(
+#     nlohmann_json
+#     GIT_REPOSITORY https://github.com/nlohmann/json.git
+#     GIT_TAG        v3.12.0
+#     GIT_SHALLOW    TRUE
+# )
+# FetchContent_MakeAvailable(nlohmann_json)
+
+# find_package(Misc REQUIRED)
+# if(WIN32)
+#     find_package(Wx REQUIRED)
+# endif()
+
+#########################################################################
+# Libraries                                                             #
+#########################################################################
+
+
+#########################################################################
+# Executables                                                           #
+#########################################################################
+
+add_executable(@EXECUTABLE_NAME@)
+
+set(SOURCES
+    main.cpp
+)
+
+target_sources(@EXECUTABLE_NAME@ PRIVATE ${SOURCES})
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${SOURCES})
+
+target_include_directories(@EXECUTABLE_NAME@
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(@EXECUTABLE_NAME@
+    PRIVATE
+#    nlohmann_json::nlohmann_json
+#    CLI11::CLI11
+#    Misc::Misc
+#    Wx::Wx
+)
+
+target_compile_features(@EXECUTABLE_NAME@ PRIVATE cxx_std_17)
+
+set_target_properties(@EXECUTABLE_NAME@ PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+#########################################################################
+# Testing                                                               #
+#########################################################################
+
+if(@PROJECT_NAME@_BUILD_TESTS)
+    include(CTest)
+    enable_testing()
+    message(STATUS "${PROJECT_NAME}: Testing is enabled.")
+    add_subdirectory(test)
+else()
+    message(STATUS "Turn on @PROJECT_NAME@_BUILD_TESTS to build tests.")
+endif()

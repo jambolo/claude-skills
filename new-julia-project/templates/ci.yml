@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+      - 'release/**'
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+
+  lint-and-format:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v2
+      - name: Format check (JuliaFormatter)
+        run: |
+          julia -e 'using Pkg; Pkg.add("JuliaFormatter")'
+          julia -e 'using JuliaFormatter; ok = format("."; verbose=true); ok || (run(`git --no-pager diff --name-only`); error("Unformatted files; run JuliaFormatter.format(\".\")"))'
+      - name: Lint (JET)
+        run: |
+          julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.add("JET")'
+          julia --project=. -e 'using JET, TOML; name = TOML.parsefile("Project.toml")["name"]; rep = report_package(name); rs = JET.get_reports(rep); foreach(show, rs); isempty(rs) || exit(1)'
