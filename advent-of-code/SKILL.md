@@ -6,14 +6,19 @@ description: >
   specific day/year/part. Handles four operations:
   (1) init — generate or update CLAUDE.md with project-specific process
       documentation tailored to the language and environment;
-  (2) scaffold — create the full project directory structure and starter files
-      for a new year or a new day;
+  (2) scaffold — bootstrap a new AoC project, delegating repo setup to the
+      matching new-<language>-project skill (new-rust-project,
+      new-cpp-project, new-typescript-project, new-julia-project) when one
+      exists, then layering on an AoC-specific structure researched from
+      community practice for that language;
   (3) stub — add a stub for a new day to an existing project;
   (4) run — execute a day's solution and verify its output against the answers
       in README.md.
   Trigger any time the user says things like "set up my AoC project",
   "add day 5", "run day 3 part 2", "scaffold advent of code", "check my
-  answer", "create CLAUDE.md for my AoC repo", or similar.
+  answer", "create CLAUDE.md for my AoC repo", or similar. For a new
+  non-AoC project in one of those languages, use the new-<language>-project
+  skill directly instead.
 ---
 
 # Advent of Code Skill
@@ -23,6 +28,40 @@ description: >
 This skill helps Claude work effectively on Advent of Code projects in any
 programming language. The four operations can be combined in a single request
 (e.g., "scaffold a new Rust AoC 2024 project and add a stub for day 1").
+
+The scaffold operation is built on top of the `new-<language>-project`
+scaffolder skills: when the project's language has one, that skill does the
+repo bootstrap (git history, .gitignore, license, README, build config, CI)
+and this skill only adds what is AoC-specific. Do not reimplement anything a
+scaffolder skill already does.
+
+---
+
+## The AoC project contract
+
+Every project this skill manages satisfies the same contract, regardless of
+language. It is stated once, here; the operations below reference it instead
+of restating it, and generated CLAUDE.md files document only how the project
+*realizes* it (exact commands, paths, types) plus any deviations.
+
+- **Structure** — a shared common library plus one runnable entry point per
+  day. Days are independent: the common library is the only cross-day code.
+- **Flags** — every day accepts `--part <1|2>` (default 1) and `--example`
+  (read `example.txt` instead of `input.txt`).
+- **Output** — each run prints the banner `=== Day <N>, part <P> ===` and
+  emits its answer as the last line of stdout in the form `Answer: <value>`.
+- **Answers** — README.md contains one section per day:
+
+  ```markdown
+  ## Day <N>
+
+  | Part | Answer |
+  |-----:|-------:|
+  |    1 |        |
+  |    2 |        |
+  ```
+
+  A blank answer cell means that part is not yet solved.
 
 ---
 
@@ -53,9 +92,9 @@ These create a project from scratch, so you do need some upfront information.
 Extract what you can from the user's message; ask once for what's missing:
 
 | Input | Why it matters |
-|-------|---------------|
-| **Language & environment** | Determines build system, file layout, run commands, common library patterns |
-| **Year** | Goes into project name, README header, LICENSE copyright |
+| --- | --- |
+| **Language & environment** | Selects the bootstrap skill, build system, file layout, run commands |
+| **Year** | Goes into project name and README header |
 | **Operation(s)** | init / scaffold / stub / run (may be combined) |
 
 Ask for missing inputs in a single, short message — don't make the user answer
@@ -71,14 +110,27 @@ CLAUDE.md teaches Claude how to work on *this specific project*. It should be
 at the project root and cover everything a developer (or Claude) needs to
 navigate the codebase from a cold start.
 
+CLAUDE.md records **project facts** — commands, paths, types, APIs,
+conventions. It must not restate **operation procedure** (how to stub, run,
+verify) or **contract semantics** (flag meanings, banner and answer formats,
+the days-independent rule) — those live in this skill and would drift in
+per-repo copies. Two-sided test: would the sentence be identical in every
+AoC project? It belongs in this skill. Does it mention a tool, file, type,
+or command of this repo? It belongs in CLAUDE.md.
+
 ### What to include
 
 **Project identity**
+
 - Language, runtime version, build system
 - Year, and what "Advent of Code" is (one sentence)
+- How the repo was bootstrapped, in one line (e.g., "bootstrapped via
+  new-rust-project" or "inline; no language skill, no CI") — don't
+  enumerate the bootstrap artifacts
 
 **Repository layout** — describe the actual directory tree:
-```
+
+```text
 <project-root>/
 ├── CLAUDE.md
 ├── README.md
@@ -88,92 +140,161 @@ navigate the codebase from a cold start.
 ```
 
 **How to add a new day** — language-specific steps:
+
 - Copy the stub / scaffold command / template
 - Wire it into any dispatch mechanism if monolithic
 - Name conventions (e.g., `day01`, `day_01`, `Day01`)
 
+List only the steps specific to this project (what to copy, what to rename,
+what to register in the build config). Omit the generic stub requirements
+(banner, placeholder solvers, empty input files, README section) —
+Operation 3 owns those.
+
 **How to build and run a day**
-- Exact shell commands from the project root
-- How `<part>` and `<example>` flags are passed
-- What the banner output looks like (`=== Day <N>, part <P> ===`)
+
+- Exact shell commands from the project root, including how the contract
+  flags are passed (e.g., after `--` for cargo/cabal) — the realization is
+  project-specific even though the flag semantics are contract
+- Any deviations from the contract's flag/banner/answer-output behavior; if
+  the project follows the contract exactly, say nothing about those
 
 **Common library API** — document the functions a new day's code will call:
+
 - Setup / argument parsing (returns day, part, input filename)
 - Data loaders: single string, line-by-line, comma-separated numbers,
   character grid, number grid
 
-**How to verify answers** — point to README.md table format and explain the
-`run` operation (see Operation 4).
+**Answer locations** — only if the project deviates from the contract
+(answers kept somewhere other than the README day tables, or a different
+stdout signal). If the project follows the contract, omit this section
+entirely. Never describe the verify procedure itself — that is Operation 4.
 
 **Conventions**
+
 - Where puzzle input files live (e.g., `day01/input.txt`, `day01/example.txt`)
 - File naming, function/struct naming patterns
-- How to handle "example" vs. "real" input
 
 ### Language-specific guidance
 
-Adapt everything to the actual language. Examples:
+Adapt everything to the actual language. For an existing project, the layout
+and run command are facts to read out of the repo, not choices to make. For a
+brand-new project, they come from the structure research done during scaffold
+(see Operation 2, Phase B) — CLAUDE.md should document the chosen structure
+*and* cite where it came from, so later sessions don't re-derive or
+second-guess it.
 
-| Language | Typical layout | Run command |
-|----------|---------------|-------------|
-| Rust | Cargo workspace, one crate per day | `cargo run -p day01 -- --part 1` |
-| Python | One script per day | `python day01/day01.py --part 1` |
-| Go | Module with one package per day | `go run ./day01 --part 1` |
-| C/C++ | CMake or Makefile, one binary per day | `./build/day01 --part 1` |
-| Haskell | Cabal/Stack project | `cabal run day01 -- --part 1` |
-| TypeScript/Node | npm workspace | `npx ts-node day01/index.ts --part 1` |
-
-If the user hasn't specified how arguments are passed, propose a reasonable
-convention for the language and document it.
+If the user hasn't specified how the contract flags reach the program (e.g.,
+after `--`, via a runner script), propose a reasonable convention for the
+language and document it.
 
 ### Updating an existing CLAUDE.md
 
 If CLAUDE.md already exists, read it first. Preserve all sections that are
 still accurate. Add or overwrite only what has changed (e.g., new day, changed
-build command). Don't rewrite sections that are fine.
+build command). Don't rewrite sections that are fine. While updating, delete
+any prose that restates skill operation procedure (see the facts-vs-procedure
+rule above).
 
 ---
 
 ## Operation 2 — Scaffold project
 
-Create the full initial project structure for a new AoC year. This goes
-beyond the directory tree — it creates real, runnable starter files.
+Create the full initial project structure for a new AoC year. This happens in
+two phases: **bootstrap** (generic repo setup) and **AoC layer** (everything
+specific to Advent of Code). Keep the per-step commit discipline throughout —
+the seeded git history is intentional output.
 
-### Always create
+### Phase A — Bootstrap the repository
 
-1. **`README.md`** — use this exact structure:
+Check whether a `new-<language>-project` skill exists for the project's
+language. If it does, **invoke it via the Skill tool** — do not replicate its
+steps by hand. It produces the git repo with seeded commits, .gitignore, MIT
+license, starter README, build config, and (where the skill provides one) a
+CI workflow.
+
+| Language | Bootstrap skill | Notes for the delegated run |
+| --- | --- | --- |
+| Rust | `new-rust-project` | Project name = AoC repo name (e.g., `advent-of-code-2024`). AoC repos are binary-only with no Pages, Codecov, or releases: skip `cd.yml` and remove the `docs` and `coverage` CI jobs unless the user asks for them. |
+| C++ | `new-cpp-project` | Use the **executable** variant. |
+| TypeScript | `new-typescript-project` | Operates in the current directory — `mkdir` the project folder and `cd` in first. Pass through the user's npm/pnpm choice (ask if unstated, as that skill requires). |
+| Julia | `new-julia-project` | Package name must be a valid Julia identifier (e.g., `AdventOfCode2024`). |
+
+For any other language, bootstrap inline, matching the same conventions the
+scaffolder skills share:
+
+1. `git init`, then `git commit --allow-empty -m "New repo"`
+2. Language-appropriate `.gitignore` — commit
+3. MIT license, `Copyright (c) <current year> John Bolton` — commit
+4. `README.md` containing only `# <project name>` — commit
+5. Build configuration (`go.mod`, `Makefile`, etc.) — commit
+
+### Phase B — AoC layer
+
+On top of the bootstrapped repo, add the AoC-specific content. One commit per
+step.
+
+1. **Research the structure, then restructure.** The bootstrap skills produce
+   a single-target project; an AoC project needs a common library plus one
+   entry point per day. **Do not hardcode the layout, guess from general
+   principles, or ask the user to design it** — research how the AoC
+   community actually structures projects in this language, then adopt the
+   prevailing convention.
+
+   Research (WebSearch / WebFetch):
+
+   - Search for AoC repos and templates in the language (e.g.
+     `advent of code <language> project structure`, GitHub topic
+     `advent-of-code` filtered by language, the awesome-advent-of-code list).
+     Prefer well-starred templates and repos from people who have completed
+     multiple years — they encode lessons a fresh design won't have.
+   - Check for language-specific AoC tooling that dictates structure (e.g.
+     `cargo-aoc` for Rust, AoC runner packages on npm/PyPI). If a dominant
+     tool exists, weigh adopting its layout against rolling a plain one.
+   - Identify the prevailing pattern: how days are separated (crate / package
+     / module / script per day), where shared utilities live, where inputs
+     are stored, how a single day is invoked.
+
+   Then choose the structure that best matches community practice **while
+   still satisfying the contract** (see "The AoC project contract" above)
+   and staying compatible with what the bootstrap skill already set up
+   (toolchain config, CI). If community practice conflicts with the contract
+   on some point, keep the contract and note the deviation in CLAUDE.md.
+
+   Record in CLAUDE.md (Operation 1) which sources informed the structure and
+   why it was chosen, so later sessions reuse the decision instead of
+   re-researching it.
+
+2. **Rewrite `README.md`** (overwriting the bootstrap placeholder), then
+   commit:
+
    ```markdown
    # Advent Of Code <year>
 
    My solutions for Advent of Code <year> implemented with <language and environment>
-
-   ## Day 1
-
-   <placeholder for implementation notes>
-
-   | Part | Answer |
-   |-----:|-------:|
-   |    1 |        |
-   |    2 |        |
    ```
 
-2. **`LICENSE`** — MIT license, `Copyright (c) <year> John Bolton`
+   followed by a `## Day 1` section in the contract's answer-table format,
+   with a `<placeholder for implementation notes>` line between the heading
+   and the table.
 
 3. **Common library** — language-appropriate module/package with:
-   - Argument parsing: reads `--part <1|2>` and `--example` from argv,
-     prints `=== Day <N>, part <P> ===` banner, returns day number, part,
-     and the input filename (`input.txt` or `example.txt`)
+
+   - Argument parsing implementing the contract's flags and banner; returns
+     day number, part, and the input filename
    - Data loaders for: single string, lines, comma-separated integers,
      character grid (`Vec<Vec<char>>` / `list[list[str]]` / etc.),
      integer grid
 
-4. **Stub for day 1** — follow Operation 3 for day 1
+4. **Stub for day 1** — follow Operation 3 for day 1.
 
-5. **Build configuration** — `Cargo.toml` / `go.mod` / `package.json` /
-   `CMakeLists.txt` etc. as appropriate, wired up to include the common
-   library and day 1
+5. **CI fix-up** — if the bootstrap skill installed a CI workflow, make sure
+   it still passes against the restructured layout (e.g., workspace-wide
+   `cargo build`/`cargo test` instead of a single crate). If the language had
+   no bootstrap skill, CI is optional — add it only if the user asks.
 
-6. **`CLAUDE.md`** — follow Operation 1
+6. **`CLAUDE.md`** — follow Operation 1. Record the bootstrap skill used
+   (one line, per Operation 1's project identity) so later operations know
+   where the repo conventions came from.
 
 ### Goal: working from the start
 
@@ -184,10 +305,9 @@ print the banner. It doesn't need to solve anything — it just needs to run.
 
 ## Operation 3 — Add a day stub
 
-Add a new day to an existing project. **Start by reading CLAUDE.md** to
-learn the language, directory layout, naming conventions, common library
-import path, build system, and input file locations. Then inspect one or two
-existing day directories to confirm the exact code patterns in use. The stub
+Add a new day to an existing project. Orient per Step 0 (read CLAUDE.md
+first), then inspect one or two existing day directories to confirm the
+exact code patterns in use. The stub
 must be indistinguishable in style from the existing days — a newcomer to the
 project should not be able to tell which day was added by Claude.
 
@@ -204,78 +324,57 @@ The stub should:
 - Be wired into the build system (add to workspace `Cargo.toml`, `go.mod`,
   `CMakeLists.txt`, etc.)
 
-Add a corresponding section to README.md:
-```markdown
-## Day <N>
-
-| Part | Answer |
-|-----:|-------:|
-|    1 |        |
-|    2 |        |
-```
+Add the corresponding `## Day <N>` section to README.md, in the contract's
+answer-table format (blank cells).
 
 ---
 
 ## Operation 4 — Run and verify
 
 Run a day's solution and compare the output to the answers in README.md.
-**Start by reading CLAUDE.md** to get the exact run command, the working
-directory to run from, and how the solution signals its answer in stdout
-(e.g., banner format, last line, `Answer:` prefix). Do not ask the user
-how to run the project — that information must be in CLAUDE.md. If it isn't,
-inspect the build files and existing day code to infer it.
+Orient per Step 0: the run command, working directory, and any contract
+deviations come from CLAUDE.md — or, failing that, from the build files and
+existing day code. Where CLAUDE.md is silent, the contract formats apply.
 
 ### Steps
 
-1. **Read CLAUDE.md** — extract the run command template and output format.
+1. **Read CLAUDE.md** — extract the run command template and any contract
+   deviations.
 
-2. **Read README.md** — parse the answer table for the requested day.
-   The table looks like:
-   ```markdown
-   | Part | Answer |
-   |-----:|-------:|
-   |    1 |  12345 |
-   |    2 |  67890 |
-   ```
-   Extract the expected answers for part 1 and part 2 (may be blank if not
-   yet solved).
+2. **Read README.md** — parse the requested day's answer table (contract
+   format); extract the expected answers for parts 1 and 2 (a blank cell
+   means not yet solved).
 
-3. **Run part 1**, capture stdout. Look for the answer in the output —
-   typically the last non-empty line, or a line matching `Answer: <value>`.
+3. **Run part 1**, capture stdout. Take the answer per the contract unless
+   CLAUDE.md notes a different signal.
 
 4. **Run part 2**, same approach.
 
 5. **Report results** in a compact table:
 
    | Part | Expected | Got | ✓/✗ |
-   |-----:|----------:|----:|-----|
-   |    1 | 12345 | 12345 | ✓ |
-   |    2 | 67890 | 67890 | ✓ |
+   | ---: | ---: | ---: | --- |
+   | 1 | 12345 | 12345 | ✓ |
+   | 2 | 67890 | 67890 | ✓ |
 
 6. If an expected answer is blank (not yet in README.md), report the output
    and ask whether to write it to README.md.
 
 7. If the output doesn't match, show the full stdout to help debug.
 
-### Flags
-
-- `--example` / `-e`: run with `example.txt` instead of `input.txt`
-- `--part <N>`: run only one part
+If the user asks for the example run or a single part, pass the contract
+flags (`--example`, `--part <N>`) accordingly.
 
 ---
 
 ## Common pitfalls to avoid
 
-- **Read before asking.** For stub and run, CLAUDE.md is the source of truth
-  for language, layout, run commands, and conventions. Read it first. Only
-  ask the user when the project genuinely doesn't have the information.
-- **Don't hardcode language assumptions.** Always derive the run command and
-  layout from what's actually in the project (read existing files, check
-  CLAUDE.md) rather than assuming.
+These add to the rules already stated in the contract and operations above —
+they don't repeat them.
+
 - **Don't clobber existing work.** Before writing any file, check whether it
   exists. For CLAUDE.md, merge rather than overwrite. For README.md day
-  sections, append rather than replace.
+  sections, append rather than replace. (The scaffold-time README rewrite of
+  the bootstrap placeholder is the one intentional exception.)
 - **Don't invent answers.** When running, capture actual process output —
   don't guess or synthesize the answer.
-- **Keep days independent.** Don't add shared state between days; the common
-  library is the only cross-day code.

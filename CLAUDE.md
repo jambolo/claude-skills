@@ -20,8 +20,8 @@ Folder name must equal frontmatter `name` (kebab-case). Installation and discove
 
 ## Two skill families
 
-- **`advent-of-code`** — language-agnostic, multi-operation (init / scaffold / stub / run). Instruction-only (no templates); derives everything per-project from CLAUDE.md and existing files rather than hardcoding a language.
-- **`new-*-project`** — per-language scaffolders (cpp, julia, rust, typescript).
+- **`advent-of-code`** — language-agnostic, multi-operation (init / scaffold / stub / run). Instruction-only (no templates). For existing projects it derives everything from the project's CLAUDE.md and files. Its scaffold operation is layered: repo bootstrap is **delegated to the matching `new-*-project` skill** via the Skill tool (inline fallback following the shared scaffolder conventions for languages without one), then the AoC-specific layout is **researched from community practice** (well-starred repos, templates, dominant tooling) rather than hardcoded — the chosen structure and its sources are recorded in the generated project's CLAUDE.md.
+- **`new-*-project`** — per-language scaffolders (cpp, julia, rust, typescript). Also serve as the bootstrap layer for `advent-of-code` scaffolds, so behavior changes here propagate there.
 
 **`new-rust-project` is the reference implementation** — the most complete scaffolder (full CI/CD workflows, templates, reference assets). The other `new-*` skills are first-pass and will be expanded to roughly the same level. When extending one of them, mirror `new-rust-project`'s structure and depth.
 
