@@ -1,164 +1,261 @@
 ---
 name: new-typescript-project
-description: Scaffold a new TypeScript project with npm or pnpm (per the user's choice) — git repo with seeded commits, MIT license, .gitignore, README, strict tsconfig, ESLint, Prettier, Vitest, and a GitHub Actions CI workflow that compiles, tests, lints, and checks formatting. Use when the user asks to start/create/initialize/bootstrap a new TypeScript or TS project, optionally specifying npm or pnpm.
+description: Scaffold a new TypeScript project with pnpm — creates the directory, then adds a strict tsconfig, ESLint, Prettier, Vitest, TypeDoc, MIT license, .gitignore, README, CI/CD GitHub Actions workflows, and seeded git commits. Use when the user asks to start/create/initialize/bootstrap a new TypeScript, TS, or pnpm project.
 ---
 
-# New TypeScript project (npm or pnpm)
+# New TypeScript project (pnpm)
 
-Bootstrap a strict TypeScript project in the **current directory** with ESLint,
-Prettier, Vitest, and a GitHub Actions CI pipeline. Each setup step is its own
-commit, matching the other `new-*-project` skills.
+Create a fresh strict-mode TypeScript project managed by pnpm, then layer on
+ESLint, Prettier, Vitest, TypeDoc, MIT license, README, CI/CD workflows, and
+per-step git commits.
 
 ## Inputs
 
-- **package manager** — `npm` or `pnpm`. Ask if the user did not say. This
-  selects every install command and the CI workflow template.
-
-## Before starting
-
-Operates in the current working directory. `cd` into the intended (already
-created) project folder first and confirm it is correct.
-
-## Package-manager command map
-
-| Action          | npm                                  | pnpm                                  |
-| --------------- | ------------------------------------ | ------------------------------------- |
-| init manifest   | `npm init -y`                        | `pnpm init`                           |
-| add dev deps    | `npm install -D <pkgs>`              | `pnpm add -D <pkgs>`                   |
-| CI template     | `templates/ci-npm.yml`               | `templates/ci-pnpm.yml`               |
+- **project name** (required) — directory + package name.
 
 ## Steps
 
-1. Init repo + empty commit:
+Run these from the directory where the new project folder should live. Requires
+`pnpm`, `node`, and `git` on PATH.
+
+1. Create and enter the project, init the repo, seed an empty commit:
 
    ```bash
+   mkdir <project name>
+   cd <project name>
    git init
    git commit --allow-empty -m "New repo"
    ```
 
-2. `.gitignore` (then `git add --all && git commit -m "Added node.js default .gitignore"`):
+2. `.gitignore` — generate the Node baseline, then append local additions:
 
    ```bash
-   npx gitignore node
+   pnpm dlx gitignore node
    ```
 
-   Append a line for the TypeScript build output: `dist/`.
+   Append:
 
-3. MIT license: write `LICENSE` from `reference/mit-license.txt` with `<YEAR>` →
-   current year. `git add LICENSE && git commit -m "Added MIT License"`.
+   ```text
+   # TypeScript build output
+   dist/
 
-4. README: `echo "# $(basename "$PWD")" > README.md`, then
-   `git add README.md && git commit -m "Added default README.md"`.
+   # TypeDoc output
+   docs/
 
-5. Init the manifest (see command map). Then set `"type": "module"` in
-   `package.json` and add these scripts:
+   # Claude AI
+   .claude/
+
+   # VS Code
+   .vscode/
+   ```
+
+   Then: `git add .gitignore && git commit -m "Added .gitignore"`
+
+3. MIT license — generates `LICENSE` with the current year and the author from
+   npm config:
+
+   ```bash
+   pnpm dlx license MIT
+   ```
+
+   Then: `git add LICENSE && git commit -m "Added MIT License"`
+
+4. README: `echo "# <project name>" > README.md`, then
+   `git add README.md && git commit -m "Added default README.md"`
+
+5. Manifest: `pnpm init`, then edit `package.json` — set `"name"` to the
+   project name, set `"type": "module"`, replace `"main": "index.js"` with
+   `"main": "dist/index.js"`, add `"types": "dist/index.d.ts"`, and add these
+   scripts:
 
    ```json
    "scripts": {
      "build": "tsc",
+     "test": "vitest run",
+     "coverage": "vitest run --coverage --coverage.reporter=lcov",
      "lint": "eslint .",
      "format": "prettier --write .",
      "format:check": "prettier --check .",
-     "test": "vitest run"
+     "docs": "typedoc src/index.ts"
    }
    ```
 
-   Commit: `git add --all && git commit -m "Added default package manifest"`.
+   Commit: `git add package.json && git commit -m "Added default package manifest"`
 
-6. Install dev dependencies (see command map for the install verb):
+6. Install dev dependencies:
 
-   ```text
-   typescript @types/node eslint @eslint/js typescript-eslint prettier vitest
+   ```bash
+   pnpm add -D typescript @types/node eslint @eslint/js typescript-eslint prettier vitest @vitest/coverage-v8 typedoc
    ```
 
-   Commit the lockfile + manifest:
-   `git add --all && git commit -m "Added TypeScript toolchain"`.
+   Commit the manifest + lockfile:
+   `git add --all && git commit -m "Added TypeScript toolchain"`
 
-7. Copy config + source files from this skill, then
-   `git add --all && git commit -m "Added tsconfig, lint/format config, and sample source"`:
+7. Generate `tsconfig.json` with `tsc --init`, then patch it:
 
-   - `templates/tsconfig.json` → `tsconfig.json`
+   ```bash
+   pnpm exec tsc --init \
+       --outDir dist \
+       --rootDir src \
+       --noUnusedLocals \
+       --noUnusedParameters
+   ```
+
+   `tsc --init` layers these flags over the current TypeScript version's
+   recommended defaults (strict, declaration, nodenext modules, …), so the
+   result tracks upstream best practice rather than a frozen snapshot. The
+   flags are only the settings that diverge from those defaults. Three things
+   it gets wrong for this scaffold must be patched afterward —
+   `include`/`exclude` have no CLI flags, and its `types: []` blocks the
+   installed `@types/node` (first `node:` import or `process` reference fails
+   with TS2591):
+
+   ```bash
+   node - << 'EOF'
+   const ts = require('typescript');
+   const fs = require('fs');
+   const config = ts.readConfigFile('tsconfig.json', ts.sys.readFile).config;
+   config.compilerOptions.types = ['node'];
+   config.include = ['src'];
+   config.exclude = ['**/*.test.ts'];
+   fs.writeFileSync('tsconfig.json', JSON.stringify(config, null, 2) + '\n');
+   EOF
+   ```
+
+   (`ts.readConfigFile`, not `JSON.parse` — the generated file may contain
+   comments. The `exclude` keeps test files out of `dist/`; without it Vitest
+   runs each test twice, once from `src/` and once compiled.)
+
+   Then copy the remaining config + source files from this skill:
+
    - `templates/eslint.config.mjs` → `eslint.config.mjs`
    - `templates/prettierrc.json` → `.prettierrc.json`
+   - `templates/prettierignore` → `.prettierignore`
    - `templates/index.ts` → `src/index.ts`
    - `templates/index.test.ts` → `src/index.test.ts`
 
-8. CI workflow — copy the package-manager-specific template to
-   `.github/workflows/ci.yml`:
+   Then run `pnpm format` once to normalize anything earlier shell steps wrote
+   (line endings, BOM), verify the toolchain end-to-end —
 
-   - npm → `templates/ci-npm.yml`
-   - pnpm → `templates/ci-pnpm.yml`
+   ```bash
+   pnpm build && pnpm test && pnpm lint && pnpm format:check
+   ```
 
-   The template `uses:` pins (`@v4`, …) are a baseline and may be stale. Before
-   committing, resolve the **latest stable major version** of every action in
-   the copied file and update each `uses:` to match. Actions to check:
+   — and commit:
+   `git add --all && git commit -m "Added tsconfig, lint/format config, and sample source"`
+
+8. CI workflow — copy `templates/ci.yml` (this skill dir) to
+   `.github/workflows/ci.yml`. No placeholder to replace (TypeDoc emits its own
+   `index.html`, so the docs job needs no redirect).
+
+   The template `uses:` pins are a current-as-of-authoring baseline and may have
+   gone stale. Before committing, resolve the **latest stable major version** of
+   each versioned action and update its `uses:`:
 
    - `actions/checkout`
+   - `pnpm/action-setup`
    - `actions/setup-node`
-   - `pnpm/action-setup` (pnpm template only)
+   - `actions/configure-pages`
+   - `actions/upload-pages-artifact`
+   - `actions/deploy-pages`
+   - `codecov/codecov-action`
 
-   Resolve the latest stable tag for each with `git ls-remote` (no `gh`, no auth
-   required), e.g.:
+   Resolve with `git ls-remote` (no `gh`, no auth):
 
    ```bash
    git ls-remote --tags --refs https://github.com/actions/checkout 'v*'
    ```
 
-   Take the highest stable semver from the output (ignore tags containing `-`,
-   e.g. `-beta`/`-rc`). Pin to the latest **major** tag — if the highest is
-   `v4.2.2`, write `actions/checkout@v4`. Apply the same to `actions/setup-node`
-   and `pnpm/action-setup`, and bump the `version:` input of `pnpm/action-setup`
-   to the latest stable pnpm major if it has moved past `9`.
+   Take the highest stable semver (ignore tags containing `-`), pin to its major
+   — `v6.0.3` → `actions/checkout@v6`. If `git ls-remote` is unavailable, read
+   the resolved tag from `https://github.com/<owner>/<repo>/releases/latest`.
 
-   If `git ls-remote` is unavailable, fetch the releases page
-   `https://github.com/<owner>/<repo>/releases/latest` and read the resolved tag.
+   One more baseline to refresh in the same pass: `node-version:` — bump to
+   the current active LTS major if it has moved past `24` (check
+   https://endoflife.date/nodejs or
+   https://nodejs.org/en/about/previous-releases).
 
-   Commit: `git add --all && git commit -m "Added GitHub Actions CI workflow"`.
+   Note: `pnpm/action-setup` deliberately has **no `version:` input** — it
+   reads the pnpm version from the `packageManager` field that `pnpm init`
+   wrote into `package.json`. Don't add one; if both are present and disagree,
+   the action fails with "Multiple versions of pnpm specified".
 
-## CI behavior (already encoded in the templates)
+   Don't commit yet — the CD workflow (step 9) is committed together with it.
+
+9. CD workflow (release automation) — copy `templates/cd.yml` (this skill dir)
+   to `.github/workflows/cd.yml`. No placeholder to replace. Its versioned
+   actions (`actions/checkout`, `pnpm/action-setup`, `actions/setup-node`) and
+   the pnpm/node baselines are the same ones resolved in step 8 — reuse those
+   pins. Commit both workflows together:
+   `git add --all && git commit -m "Added GitHub Actions CI/CD workflows"`.
+
+## CI behavior (encoded in the template)
 
 - **Triggers**: push to `master`, `develop`, `release/**`; and all pull requests.
-- **`build-and-test`** job: runs on every trigger — compiles (`build`) and runs
-  tests (`test`).
+- **Concurrency**: in-progress runs for the same ref are cancelled on new pushes
+  to a pull request (`cancel-in-progress` only for PR events).
+- **`build-and-test`** job: every trigger — `pnpm build` (tsc) + `pnpm test`
+  (Vitest), across an **OS matrix** (`ubuntu-latest`, `windows-latest`,
+  `fail-fast: false`).
 - **`lint-and-format`** job: gated by `if: github.event_name == 'pull_request'`,
-  so linting and format checking run **only on pull requests**.
+  so `eslint .` and `prettier --check .` run **only on pull requests**.
+- **`docs`** job: gated by `if: github.ref == 'refs/heads/master'` and
+  `needs: build-and-test`, so it runs **only on master after build/test pass**.
+  Builds TypeDoc HTML (`pnpm docs` → `docs/`) and deploys it to GitHub Pages.
+  Requires Pages enabled for the repo (Settings → Pages → Source: GitHub
+  Actions).
+- **`coverage`** job: gated by `if: github.ref == 'refs/heads/develop'` and
+  `needs: build-and-test`, so it runs **only on develop**. Generates lcov via
+  `vitest run --coverage` (`@vitest/coverage-v8`) and uploads
+  `coverage/lcov.info` to Codecov. Requires a `CODECOV_TOKEN` repo secret
+  (Settings → Secrets and variables → Actions).
+
+## CD behavior (encoded in the template)
+
+`cd.yml` is the release-automation workflow. Triggers on push to `master` that
+touches `package.json`.
+
+- **`build`** job: `pnpm build` + `pnpm test` gate — never tag a broken master.
+- **`release`** job (`needs: build`, `permissions: contents: write`): reads the
+  version from `package.json` via
+  `node -p "require('./package.json').version"`, and **if that tag doesn't
+  already exist**, creates + pushes `v<version>`, then merges `master` into
+  `develop` (`--no-ff`). Idempotent — re-running on an unchanged version is a
+  no-op.
+
+## Adjust per project
+
+The templates are a strict baseline; toggle these per project:
+
+- **`docs` job** (`ci.yml`) — on by default: builds TypeDoc and deploys to
+  GitHub Pages on `master`. Remove the entire `docs` job for an
+  application-only repo or any repo with no Pages setup. Requires Pages enabled
+  (Settings → Pages → Source: GitHub Actions); without it the job fails. If the
+  public API grows beyond `src/index.ts`, update the `docs` script's entry
+  points to match.
+- **submodules** — off by default. If the repo has a `.gitmodules`, add
+  `with: submodules: true` under each `actions/checkout` step that needs the
+  submodule contents (at minimum `build-and-test` in `ci.yml`). Use `recursive`
+  for nested submodules. Private submodules also need a PAT in `token:` — the
+  default `GITHUB_TOKEN` cannot clone other private repos.
 
 ## Verify the workflow with act
 
 Run the CI workflow locally in Docker with [act](https://github.com/nektos/act)
-to confirm it is green before pushing. Requires `act` on PATH and Docker Desktop
-running (`docker info` must succeed).
+before pushing. Requires `act` on PATH and Docker Desktop running (`docker info`
+must succeed). From the project root:
 
-Run from the project root:
+1. `act -l` — list the jobs act resolves.
+2. `act push` — only `build-and-test` runs; `lint-and-format` is skipped by the
+   PR gate.
+3. `act pull_request` — both jobs run.
 
-1. List the jobs act resolves per event (sanity check):
+The medium image (`catthehacker/ubuntu:act-latest`) is sufficient; pin it
+non-interactively with `-P ubuntu-latest=catthehacker/ubuntu:act-latest`.
+Confirm step 2 skips lint/format and step 3 includes them. Caveats: act runs
+Linux containers, so the `windows-latest` matrix leg can't execute (expect only
+the `ubuntu-latest` leg); the `docs` job (real GitHub Pages) and `coverage` job
+(Codecov, develop-only) can't run under act. Scope act to the runnable jobs with
+`act push -j build-and-test` and `act pull_request -j lint-and-format`.
 
-   ```bash
-   act -l
-   ```
-
-2. Simulate a **push** — only `build-and-test` should run; `lint-and-format` is
-   skipped by the PR gate:
-
-   ```bash
-   act push
-   ```
-
-3. Simulate a **pull request** — both `build-and-test` and `lint-and-format`
-   should run:
-
-   ```bash
-   act pull_request
-   ```
-
-Notes:
-
-- First run prompts for an image size; the medium image
-  (`catthehacker/ubuntu:act-latest`) is sufficient. Pin it non-interactively
-  with `-P ubuntu-latest=catthehacker/ubuntu:act-latest`.
-- act reads `.github/workflows/ci.yml` directly — no extra config needed.
-- Confirm step 2 skips lint/format and step 3 includes them; that proves the
-  pull-request gating works.
-
-After both act runs pass, report the package manager used, the created files,
-and the act results.
+Report the created project path and the act results.
