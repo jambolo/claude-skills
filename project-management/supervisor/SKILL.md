@@ -62,6 +62,14 @@ section is repeated across all three — keep them in sync.
 - A **step** is an atomic unit within a phase, executed by one worker. Steps within a
   phase run in **parallel** wherever their dependencies and file scopes allow.
 
+**Integration model**
+
+All pipeline work accumulates as commits on one dedicated **local working branch**,
+recorded (with its starting commit) in the ledger's Plan section. That branch is
+usually unpushed and need not be the repo's default branch. Every worker worktree must
+be based on that branch's **current local HEAD** — never on a remote or default ref
+such as `origin/HEAD`. The supervisor creates and verifies all worktrees itself.
+
 **Artifact style**
 
 Every artifact above is read only by models — some weak and low-context — never by
@@ -82,7 +90,8 @@ For every step, independently of the worker's report:
 
 1. **Re-run every `acceptance` command yourself** against the tree the worker produced,
    and confirm the result matches the step's exact expected result.
-2. **Confirm scope:** `git -C <worktree> diff --name-only <base>..HEAD` must be a subset
+2. **Confirm scope:** `git -C <worktree> diff --name-only <BASE>..HEAD` — where `BASE`
+   is the wave base the worktree was created at — must be a subset
    of `files_in_scope`. Any out-of-scope change fails the step. So does any commit in
    the worktree that isn't this step's own work (e.g. a cherry-picked sibling or
    dependency commit) — that signals a stale base or a wandering worker.
@@ -92,7 +101,10 @@ For every step, independently of the worker's report:
 ## Operation — supervise a phase
 
 You are given a `<plan-name>` and a **phase number**. This should run inside a **git
-repository** (steps commit; parallel workers use worktrees).
+repository** (steps commit; parallel workers use worktrees). Before anything else,
+confirm the checked-out branch equals the ledger's `working-branch`; if it differs,
+stop and reconcile with the user — every worktree base below is computed from this
+branch's HEAD.
 
 ### 1. Ensure the phase is decomposed
 
@@ -113,28 +125,48 @@ Repeat until the phase is done:
   run concurrently.
 - **Gate on prerequisites:** before launching anything, confirm every `depends_on`
   step's ledger `commit` is already on the current branch —
-  `git merge-base --is-ancestor <sha> HEAD` must succeed for each. Worktrees branch
-  from the current HEAD, so a missing prerequisite commit hands the worker a stale
-  base and forces it to self-reconcile. If a dependency is marked done but its SHA is
-  not an ancestor of HEAD, stop and repair the merge/ledger state before launching.
+  `git merge-base --is-ancestor <sha> HEAD` must succeed for each. You will create
+  every worktree at this HEAD, so a missing prerequisite commit would hand the worker
+  a stale base and force it to self-reconcile. If a dependency is marked done but its
+  SHA is not an ancestor of HEAD, stop and repair the merge/ledger state before
+  launching.
 - **Resolve references** first: replace any "files changed in step `<id>`" in a step's
   `context` with the concrete paths from the ledger, so the worker gets real paths.
-- Launch the ready set concurrently — **one worker per step**, via the **Task/Agent
-  subagent tool** with `model: sonnet` and `isolation: "worktree"`. Give the worker the
-  step's `objective`, `context`, `actions`, and `files_in_scope`, plus this contract:
+- **Create the wave's worktrees yourself** — NEVER with the Agent tool's
+  `isolation: "worktree"` option (see Worktree & merge mechanics for why). Record the
+  wave base `BASE` = `git rev-parse HEAD`, then for each step:
+  `git worktree add <absolute path outside the repo, e.g. ../worktrees/<plan-name>-<id>>
+  -b wt/<plan-name>-<id> <BASE>`.
+- **Base gate — fail fast, mechanism-agnostic:** for each worktree `W` before launch,
+  `git -C <W> rev-parse HEAD` must equal `BASE`, and every dependency's ledger commit
+  must satisfy `git merge-base --is-ancestor <sha> <BASE>`. On any mismatch do NOT
+  launch — remove and recreate the worktree at `BASE`. This check must hold no matter
+  how a worktree came to exist; it is what catches a harness or tooling regression.
+- Launch the ready set concurrently — **one worker per step**, as ordinary subagents
+  via the **Task/Agent subagent tool** with `model: sonnet` and **no `isolation`
+  option** (a worker's shell starts in the main repo — the contract's path discipline
+  is what keeps it inside its worktree). Hand each worker its worktree's absolute path
+  plus the step's `objective`, `context`, `actions`, and `files_in_scope`, and this
+  contract:
 
-  > Do only this step's actions. Change only files in `files_in_scope`. If your
-  > starting tree seems to be missing prerequisite work, stop and say so in your
-  > report — never fetch, merge, or cherry-pick other commits to fix it. Run the
-  > `acceptance` command yourself and fix within scope until it passes. Commit your
-  > changes with a message naming the step id. Then write `<plan-name>-<id>-report.md`
-  > listing what you did, the exact acceptance output, and the commit SHA — terse and
-  > structured; a model reads it, not a human. Touch nothing else.
+  > Work ONLY inside `<worktree path>`, on the branch already checked out there. Use
+  > absolute paths for every file edit, run every git command as
+  > `git -C <worktree path> …`, and prefix every build/test command with
+  > `cd <worktree path> && `. Do only this step's actions. Change only files in
+  > `files_in_scope`. If your starting tree seems to be missing prerequisite work
+  > (e.g. the step's first assertion fails), STOP and say so in your report — never
+  > fetch, pull, merge, rebase, cherry-pick, or switch branches to repair it. Run the
+  > `acceptance` command yourself and fix within scope until it passes. Commit only
+  > the files named in `files_in_scope`, with a message naming the step id. Then write
+  > `<plan-name>-<id>-report.md` in the worktree listing what you did, the exact
+  > acceptance output, your branch, and your commit SHA
+  > (`git -C <worktree path> rev-parse HEAD`) — terse and structured; a model reads
+  > it, not a human. Touch nothing else.
 
   A `judgment`-routed step is **not** given to a cheap worker — handle it on the
   expensive model or escalate to a human (see Routing).
   A **lone** ready step (no parallel siblings) may run directly in the working tree
-  with no worktree.
+  with no worktree — hand it the repo root as its working path, same contract.
 
 - As each worker returns, apply the **Verification protocol** in that worker's worktree.
 
@@ -142,7 +174,8 @@ Repeat until the phase is done:
 
 - **PASS** (acceptance matches, scope clean) → **merge** the worktree's branch into the
   current branch (clean, because scopes are disjoint), record the resulting commit SHA
-  and the produced files in the ledger, remove the worktree, and mark the step **done**.
+  and the produced files in the ledger, remove the worktree and its `wt/` branch, and
+  mark the step **done**.
 - **FAIL** → choose:
   - **(a) Retry** — for a transient or worker-level miss on a `mechanical` step: hand the
     worker a corrected packet and re-run the **same** step, bounded (≤2 retries).
@@ -160,22 +193,40 @@ Repeat until the phase is done:
 ### 5. Phase Definition of Done
 
 When every step is done, verify the phase's Definition of Done from the roadmap. If it
-holds, mark the phase complete in the ledger, advance `current-phase`, and hand back to
-the user for the next phase. If it doesn't hold, the phase wasn't fully covered — write
-a revision note and send it to the `decomposer`.
+holds: mark the phase complete in the ledger, advance `current-phase`, then commit all
+outstanding plan-artifact changes — `git add <plan-name>-*.md` (ledger, brief, roadmap,
+plus any step or report files not already committed) — message
+`supervise(<plan-name>): phase <N> complete`. Only then hand back to the user for the
+next phase. If it doesn't hold, the phase wasn't fully covered — write a revision note
+and send it to the `decomposer`.
 
 ## Worktree & merge mechanics
 
+- **You create every worktree yourself, at an exact SHA — never via the Agent tool's
+  `isolation: "worktree"`.** That mode bases its worktree on the remote default branch
+  (`origin/HEAD`), not your session HEAD — so every local-only commit, i.e. the
+  pipeline's entire accumulated work, is absent — and it picks opaque `agent-<id>`
+  paths and branches you can neither verify, merge, nor clean up deterministically.
+  Use `git worktree add <path> -b wt/<plan-name>-<id> <BASE>` with a path OUTSIDE the
+  main working tree (e.g. `../worktrees/<plan-name>-<id>`) so the main tree's status
+  and scope checks stay clean.
 - Worktrees are created per ready set, immediately before launch — after every prior
-  step's merge has landed, so the base already contains all `depends_on` commits (the
-  step‑3 gate). Each worker's worktree branches off that HEAD and it commits there.
-  Never create worktrees for later waves in advance.
-- Verify **in the worktree** (acceptance + scope diff) before merging.
-- Merge passing worktrees into the current branch one at a time. Disjoint scopes ⇒ no
-  conflicts. **A merge conflict is not something to hand-resolve** — it means two
-  co-parallel steps overlapped in scope, which is a decomposition bug: roll back and
-  send a revision note to the `decomposer`.
-- Always `git worktree remove` after merging or discarding.
+  step's merge has landed, so `BASE` (the working branch's HEAD at wave launch)
+  already contains all `depends_on` commits (the step‑3 gates). Never create worktrees
+  for later waves in advance.
+- Fresh worktrees do not inherit installed dependencies. Before a phase's first wave,
+  confirm the project's build/test toolchain actually runs in a fresh worktree (pnpm,
+  for one, relinks from its store in seconds); if a bootstrap command is needed, run
+  it in every worktree before handing it to the worker — workers must never improvise
+  setup.
+- Verify **in the worktree** (acceptance + scope diff against `BASE`) before merging.
+- Merge passing `wt/<plan-name>-<id>` branches into the current branch one at a time.
+  Disjoint scopes ⇒ no conflicts. **A merge conflict is not something to hand-resolve**
+  — it means two co-parallel steps overlapped in scope, which is a decomposition bug:
+  roll back and send a revision note to the `decomposer`.
+- Clean up deterministically, pass or fail: `git worktree remove` the worktree, then
+  delete its branch (`git branch -d wt/<plan-name>-<id>` after a merge, `-D` when
+  discarding).
 
 ## Routing & escalation
 
@@ -210,12 +261,19 @@ the `decomposer` reads when revising.
 ## Pitfalls
 
 - **Never trust the self-report.** Always re-run acceptance and diff the scope yourself.
+- **Never use `isolation: "worktree"`.** It bases the worktree on the remote default
+  branch (`origin/HEAD`), not your HEAD — workers start without the pipeline's own
+  prior work. Create worktrees yourself at `BASE`, and run the base gate regardless of
+  how any worktree was created.
 - **Launch only on a complete base.** A worktree base missing prerequisite commits makes
   workers self-reconcile (cherry-pick / merge sibling work), corrupting scope checks and
-  merges. Run the step‑3 prerequisite gate before every wave, no exceptions.
+  merges. Run the step‑3 gates (dependency ancestry + worktree HEAD == `BASE`) before
+  every wave, no exceptions.
 - **Enforce scope hard.** Out-of-scope changes fail the step even if acceptance passes.
 - **Don't hand-resolve merge conflicts.** A conflict is a scoping bug → revision.
 - **Bound the loop.** Cap retries; escalate rather than spin.
 - **Keep the ledger truthful and current** — commit SHAs, statuses, revisions — so a run
   can resume exactly where it stopped.
+- **A phase ends with a commit.** Phase completion isn't done until the ledger, brief,
+  roadmap, and any stray step/report files are committed on the current branch.
 - **Clean up worktrees** whether the step passed or failed.

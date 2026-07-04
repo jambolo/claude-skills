@@ -65,6 +65,14 @@ this section is repeated across all three — keep them in sync.
   phase run in **parallel** wherever their dependencies and file scopes allow — so
   size phases to expose independent work.
 
+**Integration model**
+
+All pipeline work accumulates as commits on one dedicated **local working branch**,
+recorded (with its starting commit) in the ledger's Plan section. That branch is
+usually unpushed and need not be the repo's default branch. Every worker worktree must
+be based on that branch's **current local HEAD** — never on a remote or default ref
+such as `origin/HEAD`. The supervisor creates and verifies all worktrees itself.
+
 **Artifact style**
 
 Every artifact above is read only by models — some weak and low-context — never by
@@ -83,7 +91,8 @@ listed so your brief and roadmap carry everything those stages will need.
 
 Read the user's goal. If it is underspecified on any axis that would change the plan
 — scope boundaries, success criteria, target environment/stack, hard constraints,
-deadlines — ask in **one** short round of questions before writing. Do not invent
+deadlines, which git branch the work runs on — ask in **one** short round of questions
+before writing. Do not invent
 requirements; a wrong assumption here propagates into every downstream step.
 
 If a brief/roadmap/ledger already exist for this effort, read them first and **update**
@@ -157,6 +166,12 @@ whole pipeline. You seed it; the decomposer appends a step registry per phase; t
 supervisor records results. Create it with the plan and phases filled and the
 step/revision sections empty.
 
+Fill the integration fields from the actual repo, never from assumption: check out (or
+create) the working branch the effort runs on, then set `working-branch` from
+`git rev-parse --abbrev-ref HEAD`, `starting-commit` from `git rev-parse HEAD`, and
+`default-branch` from `git symbolic-ref refs/remotes/origin/HEAD` (or `none` when there
+is no remote). The supervisor gates every worker worktree's base against these fields.
+
 ```markdown
 # <plan-name> — Ledger
 
@@ -167,6 +182,9 @@ updates Steps and appends Revisions.
 ## Plan
 - plan-name: <plan-name>
 - current-phase: 1
+- working-branch: <local branch all pipeline commits accumulate on>
+- starting-commit: <full SHA of working-branch HEAD at seeding>
+- default-branch: <remote default branch, or "none">
 
 ## Phases
 | Phase | Status  | Notes |
@@ -197,5 +215,9 @@ Tell the user the three files are ready and that the next move is to invoke the
   cannot tell when a phase is finished. Prefer conditions verifiable by a command.
 - **Expose parallelism.** Group independent work into the same phase; push genuine
   ordering into phase order or step-level `depends_on`.
+- **Seed the integration fields from reality.** `working-branch` and `starting-commit`
+  come from real `git` output on the intended branch, never from assumption — the
+  supervisor refuses to base worktrees anywhere else, so a wrong or missing value
+  stalls execution.
 - **Don't clobber.** If artifacts for this `<plan-name>` already exist, read and
   update them — preserve completed phases and the ledger's recorded state.

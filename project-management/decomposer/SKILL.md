@@ -62,6 +62,14 @@ section is repeated across all three — keep them in sync.
 - A **step** is an atomic unit within a phase, executed by one worker. Steps within a
   phase run in **parallel** wherever their dependencies and file scopes allow.
 
+**Integration model**
+
+All pipeline work accumulates as commits on one dedicated **local working branch**,
+recorded (with its starting commit) in the ledger's Plan section. That branch is
+usually unpushed and need not be the repo's default branch. Every worker worktree must
+be based on that branch's **current local HEAD** — never on a remote or default ref
+such as `origin/HEAD`. The supervisor creates and verifies all worktrees itself.
+
 **Artifact style**
 
 Every artifact above is read only by models — some weak and low-context — never by
@@ -91,7 +99,10 @@ Emit one `<plan-name>-<id>.md` per step, using exactly these fields:
     "files changed in step <id>" — the supervisor resolves the actual paths/content
     from the ledger at run time.>
 - actions: |
-    <concrete, ordered instructions, as close to executable as possible>
+    <concrete, ordered instructions, as close to executable as possible. If depends_on
+    is non-empty, the FIRST action asserts that each dependency's key artifact exists
+    (exact file path, or exact symbol in a named file) and says: if absent, STOP and
+    report "missing base" in the report file — do not fetch, merge, or improvise>
 - acceptance: |
     <a command to run> → <the EXACT expected result: exact stdout, exit code, or
     resulting file state>
@@ -107,9 +118,17 @@ Field notes:
   or a human instead of a cheap worker.
 - **files_in_scope** — the contract that makes parallelism safe. The worker touches
   only these paths; the supervisor rejects the step if anything else changed.
+- **actions** — when `depends_on` is non-empty, the first action must assert a concrete
+  artifact of each dependency (an exact path, or an exact symbol in a named file) and
+  tell the worker to STOP and report a missing base if the check fails — never to
+  fetch, merge, or otherwise self-repair. This makes every worker an independent
+  detector of a mis-based worktree, defense-in-depth behind the supervisor's own gate.
 - **acceptance** — a real command plus its exact expected result. "Looks right" is not
   acceptance. Prefer deterministic checks: a passing test, an exact stdout, an exit
-  code, a file that exists with specific content.
+  code, a file that exists with specific content. Acceptance must exercise every
+  compile/test surface the change can break: a step that edits a shared package but
+  builds only that package can pass while breaking its dependents — enforce
+  assumptions with acceptance, don't presume them.
 
 **Sizing.** Prefer steps no larger than a weak, low-context worker can execute *and*
 self-check. If a step spans many files, needs judgment, or can't be given a crisp
@@ -152,11 +171,16 @@ revision note → Operation B.
 5. Project context: into each step's `context`, distill exactly the slice of the brief
    and roadmap that worker needs — no more. Reference earlier steps' outputs as "files
    changed in step `<id>`".
-6. Write concrete `actions`, an `acceptance` command with its exact expected result,
+6. Write concrete `actions` — opening with the dependency-artifact assertion whenever
+   `depends_on` is non-empty — an `acceptance` command with its exact expected result,
    and a `rollback`.
 7. Write one `<plan-name>-<id>.md` per step.
 8. Register every step in the ledger's **Steps** section: `id | phase | status=pending
    | files (from files_in_scope) | commit (blank)`.
+9. Commit the step files and the ledger update together — message
+   `decompose(<plan-name>): phase <N> steps`. Plan state is versioned like everything
+   else: the supervisor merges worker commits into this same branch, and the revision
+   loop relies on history for which version of a step a worker actually ran against.
 
 ## Operation B — revise
 
@@ -173,6 +197,9 @@ not starting over.
    too-large step, tighten a vague acceptance command).
 4. Update the ledger's **Steps** registry: mark the failed step superseded and add the new
    ids as `pending`.
+5. Commit the corrected/added step files and the ledger update together — message
+   `decompose(<plan-name>): revise phase <N>`. The superseded version must stay
+   reachable in history; never leave a revision sitting uncommitted in the working tree.
 
 ## Pitfalls
 
@@ -182,8 +209,13 @@ not starting over.
   result. No "verify it works" hand-waves.
 - **Keep co-parallel scopes disjoint.** Overlapping `files_in_scope` among steps that
   run together causes merge conflicts and forces a revision.
+- **Dependent steps assert their base.** A step with `depends_on` opens by checking a
+  concrete artifact from each dependency and stops on absence — a worker must detect a
+  wrong or stale base, never repair one.
 - **Distill, don't dump.** Project the relevant slice of the brief into each step, not
   the entire brief.
 - **On revision, touch only what's broken.** Emit corrected/added steps; never
   re-decompose completed work.
+- **Finish with a commit.** Both operations end by committing the step files plus the
+  ledger update; an emit that never lands in history can't be audited or revised against.
 - **Don't clobber.** Leave valid existing step files and completed ledger entries intact.
