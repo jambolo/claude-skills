@@ -26,16 +26,15 @@ large goal with a supervised fleet of cheap-model workers:
 - **decomposer** — one phase → atomic, parallelizable **steps**
 - **supervisor** — launches a **worker** per step, verifies, merges, drives revisions
 
-Your job is to think hard about the goal *once*, at a high level, and write it down
-so the rest of the pipeline can run without re-deriving strategy. You produce three
-files and stop. You do **not** design individual steps, touch code, or execute
-anything.
+Think hard about the goal *once*, at a high level, and write it down so the rest of the
+pipeline runs without re-deriving strategy. You produce three files and stop — you do
+**not** design steps, touch code, or execute anything.
 
 ## Shared model (planner → decomposer → supervisor)
 
-These three skills cooperate through Markdown files, all keyed by one kebab-case
-`<plan-name>` that you (the planner) establish. Each skill installs independently, so
-this section is repeated across all three — keep them in sync.
+The three skills cooperate only through Markdown files keyed by one kebab-case
+`<plan-name>` the planner establishes. Each installs independently, so this section is
+duplicated across all three — keep them in sync.
 
 **Artifacts**
 
@@ -49,68 +48,61 @@ this section is repeated across all three — keep them in sync.
 
 **Roles & models**
 
-- **planner**, **decomposer**, **supervisor** run on the expensive model (Opus) — a
-  person drives each of them.
-- A **worker** is a subagent the supervisor launches on a cheaper model (Sonnet) to
-  execute one step. A worker sees ONLY its step file — it has none of the brief,
-  roadmap, or sibling steps.
-- Work routed `judgment` (no clean deterministic answer), or that fails repeatedly,
-  escalates back to the expensive model or a human.
+- **planner**, **decomposer**, **supervisor** run on the expensive model (Opus), each
+  driven by a person.
+- A **worker** is a subagent the supervisor launches on the cheap model (Sonnet) for one
+  step. It sees ONLY its step file — none of the brief, roadmap, or sibling steps.
+- A step routed `judgment` (no clean deterministic answer), or one that fails repeatedly,
+  escalates to the expensive model or a human.
 
 **Phases and steps**
 
-- A **phase** is a high-level, sequential chunk of the roadmap. Phases run in order;
-  a later phase may assume earlier phases are done.
-- A **step** is an atomic unit within a phase, executed by one worker. Steps within a
-  phase run in **parallel** wherever their dependencies and file scopes allow — so
-  size phases to expose independent work.
+- A **phase** is a sequential chunk of the roadmap; phases run in order, a later one
+  assuming earlier ones are done.
+- A **step** is an atomic unit within a phase, run by one worker. Co-phase steps run in
+  **parallel** wherever dependencies and file scopes allow.
 
 **Integration model**
 
-All pipeline work accumulates as commits on one dedicated **local working branch**,
-recorded (with its starting commit) in the ledger's Plan section. That branch is
-usually unpushed and need not be the repo's default branch. Every worker worktree must
-be based on that branch's **current local HEAD** — never on a remote or default ref
-such as `origin/HEAD`. The supervisor creates and verifies all worktrees itself.
+All work accumulates as commits on one dedicated **local working branch** (its starting
+commit is in the ledger's Plan section) — usually unpushed, not necessarily the repo
+default. Every worker worktree bases on that branch's **current local HEAD**, never a
+remote or default ref like `origin/HEAD`. The supervisor creates and verifies all
+worktrees itself.
 
 **Artifact style**
 
-Every artifact above is read only by models — some weak and low-context — never by
-humans. Optimize for machine consumption: structured over prose (field lists, tables,
-fenced blocks); explicit over elegant (exact paths, exact commands, exact expected
-strings — no "see above" or other referential shorthand); locally self-contained
-sections. Omit anything that serves only a human reader: introductions, transitions,
-summaries, motivational framing. Completeness first, compactness second, polish never.
+Only models read these artifacts — some weak, low-context — never humans. Write for
+machine consumption: structured over prose (fields, tables, fenced blocks); explicit over
+elegant (exact paths, commands, expected strings — no "see above"); self-contained
+sections. Cut anything only a human needs — intros, transitions, summaries. Completeness
+first, compactness second, polish never.
 
-You own only the first three files here. The rest are produced downstream; they are
-listed so your brief and roadmap carry everything those stages will need.
+You own only the first three files; the rest are produced downstream, listed so your brief
+and roadmap carry everything those stages need.
 
 ## Operation — plan a goal
 
 ### 1. Orient and clarify
 
-Read the user's goal. If it is underspecified on any axis that would change the plan
-— scope boundaries, success criteria, target environment/stack, hard constraints,
-deadlines, which git branch the work runs on — ask in **one** short round of questions
-before writing. Do not invent
-requirements; a wrong assumption here propagates into every downstream step.
-
-If a brief/roadmap/ledger already exist for this effort, read them first and **update**
-rather than overwrite (see Pitfalls).
+Read the goal. If it is underspecified on any axis that would change the plan — scope,
+success criteria, target environment/stack, hard constraints, deadlines, which git branch
+the work runs on — ask in **one** short round before writing. Don't invent requirements;
+a wrong assumption propagates into every downstream step. If a brief/roadmap/ledger
+already exist for this effort, read them and **update** rather than overwrite (see
+Pitfalls).
 
 ### 2. Establish the plan-name
 
-Choose a short, kebab-case `<plan-name>` derived from the goal (e.g.
-`add-oauth-login`, `migrate-to-vitest`). Every artifact in the pipeline is keyed by
-it. State it explicitly to the user.
+Choose a short kebab-case `<plan-name>` from the goal (e.g. `add-oauth-login`,
+`migrate-to-vitest`). Every artifact is keyed by it. State it to the user.
 
 ### 3. Write the brief
 
-`<plan-name>-brief.md` is the durable "what and why". The decomposer will **project**
-slices of it into each worker's step, so anything a worker could conceivably need must
-be written down here — assume the workers know nothing else. Its only reader is the
-decomposer: write dense, structured facts — exact paths, commands, and names — not
-narrative prose.
+`<plan-name>-brief.md` is the durable "what and why". The decomposer **projects** slices
+of it into each worker's step, so anything a worker could need must be here — assume
+workers know nothing else. Its only reader is the decomposer: dense structured facts —
+exact paths, commands, names — not narrative.
 
 ```markdown
 # <plan-name> — Brief
@@ -137,11 +129,10 @@ relevant prior art, domain facts, links to key files/areas>
 
 ### 4. Write the roadmap
 
-`<plan-name>-roadmap.md` divides execution into ordered **phases**. Keep it
-high-level: phases and their exit criteria, **not** step-level detail (that is the
-decomposer's job). Size each phase so it decomposes into a coherent batch of steps
-that can largely run in parallel; when work is inherently sequential, split it across
-phases or leave the ordering to step-level `depends_on` within one phase.
+`<plan-name>-roadmap.md` divides execution into ordered **phases** — phases and exit
+criteria, **not** step detail (the decomposer's job). Size each phase to decompose into a
+batch of steps that largely run in parallel; push inherently sequential work into phase
+order or step-level `depends_on`.
 
 ```markdown
 # <plan-name> — Roadmap
@@ -161,16 +152,15 @@ phases or leave the ordering to step-level `depends_on` within one phase.
 
 ### 5. Seed the ledger
 
-`<plan-name>-ledger.md` is the single source of truth for execution state across the
-whole pipeline. You seed it; the decomposer appends a step registry per phase; the
-supervisor records results. Create it with the plan and phases filled and the
-step/revision sections empty.
+`<plan-name>-ledger.md` is the single source of truth for execution state. You seed it;
+the decomposer appends a step registry per phase; the supervisor records results. Create
+it with Plan + Phases filled and the step/revision sections empty.
 
 Fill the integration fields from the actual repo, never from assumption: check out (or
-create) the working branch the effort runs on, then set `working-branch` from
+create) the working branch, then set `working-branch` from
 `git rev-parse --abbrev-ref HEAD`, `starting-commit` from `git rev-parse HEAD`, and
-`default-branch` from `git symbolic-ref refs/remotes/origin/HEAD` (or `none` when there
-is no remote). The supervisor gates every worker worktree's base against these fields.
+`default-branch` from `git symbolic-ref refs/remotes/origin/HEAD` (or `none` when there is
+no remote). The supervisor gates every worktree base against these fields.
 
 ```markdown
 # <plan-name> — Ledger
@@ -201,23 +191,21 @@ updates Steps and appends Revisions.
 
 ### 6. Hand off
 
-Tell the user the three files are ready and that the next move is to invoke the
-`decomposer` on a specific phase (usually phase 1).
+Tell the user the three files are ready and the next move is to invoke the `decomposer`
+on a specific phase (usually phase 1).
 
 ## Pitfalls
 
-- **Stay at altitude.** The roadmap is phases and exit criteria, never individual
-  steps or code. If you are naming files to edit, you have dropped into the
-  decomposer's job.
-- **Write down everything the workers will need.** The decomposer can only project
-  what the brief contains; unstated context cannot reach a worker.
-- **Every phase needs a checkable Definition of Done.** Without it the supervisor
-  cannot tell when a phase is finished. Prefer conditions verifiable by a command.
-- **Expose parallelism.** Group independent work into the same phase; push genuine
-  ordering into phase order or step-level `depends_on`.
-- **Seed the integration fields from reality.** `working-branch` and `starting-commit`
-  come from real `git` output on the intended branch, never from assumption — the
-  supervisor refuses to base worktrees anywhere else, so a wrong or missing value
-  stalls execution.
-- **Don't clobber.** If artifacts for this `<plan-name>` already exist, read and
-  update them — preserve completed phases and the ledger's recorded state.
+- **Stay at altitude.** Roadmap = phases and exit criteria, never steps or code. Naming
+  files to edit means you've dropped into the decomposer's job.
+- **Write down everything workers need.** The decomposer can only project what the brief
+  contains; unstated context can't reach a worker.
+- **Every phase needs a checkable Definition of Done** — prefer command-verifiable
+  conditions, else the supervisor can't tell when a phase is finished.
+- **Expose parallelism.** Group independent work into one phase; push ordering into phase
+  order or step-level `depends_on`.
+- **Seed integration fields from reality.** `working-branch` and `starting-commit` come
+  from real `git` output on the intended branch — the supervisor refuses any other worktree
+  base, so a wrong value stalls execution.
+- **Don't clobber.** If artifacts for this `<plan-name>` already exist, read and update —
+  preserve completed phases and recorded ledger state.
