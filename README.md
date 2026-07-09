@@ -19,28 +19,42 @@ A three-skill pipeline for executing a large, complex goal with a fleet of cheap
 - **decomposer** — breaks one phase into atomic, parallelizable **step** files (`<plan-name>-<id>.md`), each self-contained for a low-context worker: projects the needed slice of the brief/roadmap into the step's `context`, wires `depends_on`, keeps parallel steps' file scopes disjoint, and gives each a concrete `acceptance` command with an exact expected result.
 - **supervisor** — launches one worker per step (parallel steps isolated in their own git worktrees), then verifies each result against ground truth by re-running every `acceptance` command and confirming only the declared files changed. Merges passing work, records commit SHAs in the ledger, and drives the failure → revision loop by re-invoking the decomposer. Never trusts a worker's self-report.
 
-## new-cpp-project
+## new-project
 
-Scaffolds a C++ CMake project in a new directory — executable or library — with git repo, seeded commits, MIT license, Visual-Studio-aware .gitignore, README, and CMakeLists.txt rendered from bundled templates.
+Scaffolds new projects for specific languages. Whether done explicitly or via the language's platform tooling, every skill produces:
 
-Library variant includes:
+1. A project folder named after the project — created if it doesn't already exist, used as-is otherwise.
+2. A git repo whose seeded commit history reflects the setup steps, one commit per step.
+3. A language-tuned `.gitignore`, an MIT license, and a README seeded with the project name.
+4. The language's native project manifest / build configuration (`CMakeLists.txt`, `<name>.cabal`, `Project.toml`, `Cargo.toml`, `package.json` + `tsconfig.json`).
+5. A skeleton source layout ready to build.
+6. A GitHub Actions CI workflow (build + test on every push; lint + format checks gated to pull requests).
 
-- Doxygen configuration
-- Package config file
-- GTest test directory (`test/`)
-- `include/<name>/` layout
+### new-cpp-project
 
-## new-julia-project
+Scaffolds a C++ CMake project as an **executable** (default) or **library**, rendering `CMakeLists.txt` from a bundled template with the project name and description substituted. The `.gitignore` is Visual-Studio-aware. Placeholder sources (`main.cpp`, or the library's header/source pair) are created but intentionally left uncommitted.
 
-Scaffolds a Julia package via `PkgTemplates` — generates Project.toml (v0.1.0), git repo with Julia-tuned .gitignore rules, default `src/` and `test/` directories, and a custom GitHub Actions CI workflow that builds, tests, lints, and checks formatting.
+The library variant additionally produces a Doxygen config, a CMake package config (`find_package` support with install/export wiring), and a GTest `test/` directory whose GoogleTest dependency is fetched via `FetchContent` when tests are enabled (`-D<name>_BUILD_TESTS=ON`).
 
-## new-rust-project
+CI builds and runs `ctest` on an `ubuntu-latest` + `windows-latest` matrix; pull requests also get a `clang-format` check and a `clang-tidy` lint against the CMake compile database.
 
-Scaffolds a Rust project via `cargo new`, then layers on a comprehensive .gitignore, MIT license, README, GitHub Actions CI/CD workflows, and per-step git commits.
+### new-haskell-project
 
-## new-typescript-project
+Scaffolds a Haskell package by driving `cabal init` non-interactively — cabal's own generator produces the `.cabal` manifest, starter sources, test suite, `CHANGELOG.md`, and the MIT `LICENSE` (author and year filled from git config), so the skill bundles no source templates at all. Kinds: **library + executable** (default — the testable-application layout with a thin `app/Main.hs` over a `src/` library), **executable**, or **library**.
 
-Scaffolds a strict TypeScript project with npm or pnpm (user's choice) in the current directory — git repo with seeded commits, MIT license, .gitignore, README, strict tsconfig, ESLint, Prettier, Vitest, and a GitHub Actions CI workflow that compiles, tests, lints, and checks formatting.
+CI builds and runs `cabal test` on an `ubuntu-latest` + `windows-latest` matrix, pinning GHC to the scaffold-time compiler (cabal pins `base` to it) and caching the cabal store per build plan; pull requests also get an Ormolu format check and an HLint lint. The workflow is verified locally with [act](https://github.com/nektos/act).
+
+### new-julia-project
+
+Scaffolds a Julia package by driving `PkgTemplates` non-interactively — it generates the `Project.toml` (v0.1.0), git repo, Julia-tuned `.gitignore`, and `src/` + `test/` skeleton, with the stock README, license, and workflow plugins disabled so the skill's own versions are used instead. CI builds the package and runs `Pkg.test`; pull requests also get a JuliaFormatter format check and a JET static lint. The workflow is verified locally with [act](https://github.com/nektos/act).
+
+### new-rust-project
+
+Scaffolds a Rust crate via `cargo new` (or `cargo init` into an existing folder). CI builds and tests on an `ubuntu-latest` + `windows-latest` matrix; pull requests also get `cargo fmt --check` and `cargo clippy -D warnings`; a **docs** job (master only) builds `cargo doc` and deploys to GitHub Pages, and a **coverage** job (develop only) uploads `cargo llvm-cov` results to Codecov. A separate **CD workflow** watches `Cargo.toml` on master and, after a build/test gate, tags `v<version>` and merges master back into develop. The CI workflow is verified locally with [act](https://github.com/nektos/act).
+
+### new-typescript-project
+
+Scaffolds a strict TypeScript project with **pnpm**. Beyond the common baseline it installs and configures the toolchain locally: a strict `tsconfig.json` generated by `tsc --init` (then patched), ESLint (flat config with typescript-eslint), Prettier, Vitest with V8 coverage, and TypeDoc, wired up as `build` / `lint` / `format` / `format:check` / `test` / `coverage` / `docs` scripts in `package.json`, plus a sample `src/index.ts` with a passing test. CI builds and tests on an `ubuntu-latest` + `windows-latest` matrix; pull requests also get the lint and format checks; a **docs** job (master only) deploys TypeDoc to GitHub Pages, and a **coverage** job (develop only) uploads lcov to Codecov. A separate **CD workflow** watches `package.json` on master, tags `v<version>`, and merges master back into develop. The CI workflow is verified locally with [act](https://github.com/nektos/act).
 
 ## Repository layout
 

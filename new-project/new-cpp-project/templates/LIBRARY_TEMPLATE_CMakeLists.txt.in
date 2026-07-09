@@ -39,7 +39,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(IS_TOP_LEVEL_PROJECT ON)
 endif()
 
-cmake_dependent_option(${PROJECT_NAME}_BUILD_TESTING
+cmake_dependent_option(${PROJECT_NAME}_BUILD_TESTS
     "Enable building tests for ${PROJECT_NAME}"
     OFF
     "IS_TOP_LEVEL_PROJECT"
@@ -56,7 +56,7 @@ endif()
 # Dependencies                                                          #
 #########################################################################
 
-if (${PROJECT_NAME}_BUILD_TESTING)
+if (${PROJECT_NAME}_BUILD_TESTS)
     include(FetchContent)
     FetchContent_Declare(
         GoogleTest

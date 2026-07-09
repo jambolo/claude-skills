@@ -1,27 +1,55 @@
 ---
 name: new-typescript-project
-description: Scaffold a new TypeScript project with pnpm — creates the directory, then adds a strict tsconfig, ESLint, Prettier, Vitest, TypeDoc, MIT license, .gitignore, README, CI/CD GitHub Actions workflows, and seeded git commits. Use when the user asks to start/create/initialize/bootstrap a new TypeScript, TS, or pnpm project.
+description: Scaffold a new TypeScript project with pnpm — creates the directory, then adds a strict tsconfig, ESLint, Prettier, Vitest, TypeDoc, MIT license, .gitignore, README, CI/CD GitHub Actions workflows, and seeded git commits. Also finishes a partially set-up TypeScript project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new TypeScript, TS, or pnpm project, or to complete/fill in the setup of an existing one.
 ---
 
 # New TypeScript project (pnpm)
 
 Create a fresh strict-mode TypeScript project managed by pnpm, then layer on
 ESLint, Prettier, Vitest, TypeDoc, MIT license, README, CI/CD workflows, and
-per-step git commits.
+per-step git commits. Also finishes a partially set-up project, adding only
+what's missing (see "Partially set-up projects").
 
 ## Inputs
 
 - **project name** (required) — directory + package name.
+
+## Tool preference
+
+Prefer language-native tooling (`pnpm`, `tsc --init`) for anything it can
+generate; use generators (`pnpm dlx gitignore`, `pnpm dlx license`) where there
+is no native equivalent; fall back to the bundled templates where no generator
+exists (ESLint/Prettier config, sample sources, workflows) or when generation
+fails.
+
+## Partially set-up projects
+
+This skill also finishes a project that is already partially set up. Every step
+is idempotent — before running a step, check whether its output already exists:
+
+- If the repo already has commits, skip the "New repo" empty commit.
+- `.gitignore` is merged, not replaced: append only the missing entries
+  (including `dist/`, `docs/`, `.claude/`, and `.vscode/`).
+- An artifact that already exists (LICENSE, README, tsconfig, lint/format
+  config, sources, workflows) is kept as-is, not overwritten; skip that step
+  and its commit. Note `tsc --init` errors if `tsconfig.json` exists — keep the
+  existing file.
+- If `package.json` already exists, keep it; just ensure `"type": "module"`,
+  `"main"`, `"types"`, and the scripts below are present, and install only the
+  missing dev dependencies.
+- Only commit a step that actually changed something, keeping the same commit
+  messages.
 
 ## Steps
 
 Run these from the directory where the new project folder should live. Requires
 `pnpm`, `node`, and `git` on PATH.
 
-1. Create and enter the project, init the repo, seed an empty commit:
+1. Create and enter the project (`mkdir -p` so an already-created folder is
+   used as-is), init the repo, seed an empty commit:
 
    ```bash
-   mkdir <project name>
+   mkdir -p <project name>
    cd <project name>
    git init
    git commit --allow-empty -m "New repo"
@@ -57,6 +85,11 @@ Run these from the directory where the new project folder should live. Requires
    ```bash
    pnpm dlx license MIT
    ```
+
+   Verify the copyright line reads `Copyright (c) <current year> <git config
+   user.name>` and fix it up if not. If generation is unavailable, fall back to
+   `reference/mit-license.txt` with `<YEAR>` → current year followed by the
+   author from `git config user.name`.
 
    Then: `git add LICENSE && git commit -m "Added MIT License"`
 
@@ -242,8 +275,15 @@ The templates are a strict baseline; toggle these per project:
 ## Verify the workflow with act
 
 Run the CI workflow locally in Docker with [act](https://github.com/nektos/act)
-before pushing. Requires `act` on PATH and Docker Desktop running (`docker info`
-must succeed). From the project root:
+before pushing — when the tooling is present. First check for it:
+
+```bash
+command -v act && docker info >/dev/null 2>&1
+```
+
+If `act` is not on PATH or Docker is not running, **skip this whole section** —
+it is optional validation, not a failure; state in the final report that act
+verification was skipped and why. Otherwise, from the project root:
 
 1. `act -l` — list the jobs act resolves.
 2. `act push` — only `build-and-test` runs; `lint-and-format` is skipped by the
@@ -258,4 +298,6 @@ the `ubuntu-latest` leg); the `docs` job (real GitHub Pages) and `coverage` job
 (Codecov, develop-only) can't run under act. Scope act to the runnable jobs with
 `act push -j build-and-test` and `act pull_request -j lint-and-format`.
 
-Report the created project path and the act results.
+Report the created project path, any steps skipped because the project was
+already partially set up, and the act results (or that act verification was
+skipped and why).

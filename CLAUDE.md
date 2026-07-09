@@ -10,11 +10,12 @@ Authoring source for a collection of [Claude Code skills](https://docs.claude.co
 
 Skills are grouped by family into category folders at the repo root. Each category folder holds one or more **leaf skill folders**:
 
-```
+```text
 advent-of-code/       # family
   advent-of-code/     # leaf skill
 new-project/          # family
   new-cpp-project/    # leaf skill
+  new-haskell-project/
   new-julia-project/
   new-rust-project/
   new-typescript-project/
@@ -41,17 +42,19 @@ Leaf folder name must equal frontmatter `name` (kebab-case). Installation and di
 ## Three skill families
 
 - **`advent-of-code`** — language-agnostic, multi-operation (init / scaffold / stub / run). Instruction-only (no templates). For existing projects it derives everything from the project's CLAUDE.md and files. Its scaffold operation is layered: repo bootstrap is **delegated to the matching `new-*-project` skill** via the Skill tool (inline fallback following the shared scaffolder conventions for languages without one), then the AoC-specific layout is **researched from community practice** (well-starred repos, templates, dominant tooling) rather than hardcoded — the chosen structure and its sources are recorded in the generated project's CLAUDE.md.
-- **`new-*-project`** — per-language scaffolders (cpp, julia, rust, typescript). Also serve as the bootstrap layer for `advent-of-code` scaffolds, so behavior changes here propagate there.
+- **`new-*-project`** — per-language scaffolders (cpp, haskell, julia, rust, typescript). Also serve as the bootstrap layer for `advent-of-code` scaffolds, so behavior changes here propagate there.
 - **`project-management`** — the **planner → decomposer → supervisor** pipeline for executing a large goal with a fleet of cheap-model (Sonnet) worker subagents under expensive-model (Opus) supervision. `planner` turns a goal into a `<plan-name>-brief.md`, phased `<plan-name>-roadmap.md`, and seeded `<plan-name>-ledger.md`; `decomposer` breaks one phase into atomic, parallelizable step files `<plan-name>-<id>.md`; `supervisor` launches a worker per step (parallel steps isolated in git worktrees), verifies each against ground truth, merges passing work, and drives the failure → revision loop back through the decomposer. The three skills install independently and cooperate only through the shared Markdown artifacts keyed by `<plan-name>` — the **"Shared model" section is duplicated verbatim across all three SKILL.md files and must be kept in sync** when edited.
-
-**`new-rust-project` is the reference implementation** — the most complete scaffolder (full CI/CD workflows, templates, reference assets). The other `new-*` skills are first-pass and will be expanded to roughly the same level. When extending one of them, mirror `new-rust-project`'s structure and depth.
 
 ## Scaffolder conventions (shared across `new-*`)
 
 All scaffolders converge on the same shape — preserve it when adding or editing one:
 
 - Git-first: `git init`, then **one commit per setup step** ("New repo" empty commit, then `.gitignore`, MIT license, README, build config…). The seeded-commit history is intentional output, not incidental.
-- Always produce: MIT license (`Copyright (c) <year> John Bolton`), language-appropriate `.gitignore`, README headed by the folder/project name.
+- Generator preference order: **language-native tooling first** (`cargo`, `cabal init`, `PkgTemplates`, `tsc --init`), **npx generators second** (`npx gitignore <lang>`, `npx license MIT` — even in non-Node projects), **bundled templates / hand-written content last**. Reading author info from git config is fine.
+- **pnpm is the preferred package manager for Node-based projects** — `new-typescript-project` is pnpm-only by design (not an omission), and any future Node-based scaffolder should default to pnpm too (`pnpm add`, `pnpm dlx` instead of `npx`). Plain `npx` remains fine for one-off generators in non-Node projects.
+- Always produce: MIT license (`Copyright (c) <year> <git config user.name>`), language-appropriate `.gitignore` that **includes `.vscode/`**, README headed by the folder/project name.
+- Idempotent / partial-setup aware: each skill has a "Partially set-up projects" section — existing artifacts are kept (`.gitignore` is merged by appending missing entries), generation is skipped when the language manifest already exists, and a step is committed only if it changed something.
+- act validation is optional: skipped (and reported as skipped) when `act` is not on PATH or Docker isn't running.
 - Templates use placeholder tokens (`PROJECT_NAME`, `<name>`). `.in` suffix = CMake `configure_file` input.
 
 ## Validating a change

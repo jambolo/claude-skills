@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.21)
 
-find_package(GTest REQUIRED)
+# GTest may already be provided by the parent via FetchContent
+if(NOT TARGET GTest::gtest)
+    find_package(GTest REQUIRED)
+endif()
 include(GoogleTest)
 
 # Function to create test executables

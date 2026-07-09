@@ -1,16 +1,39 @@
 ---
 name: new-rust-project
-description: Scaffold a new Rust project with cargo — creates the directory via cargo new, then adds a comprehensive .gitignore, MIT license, README, CI/CD GitHub Actions workflows, and seeded git commits. Use when the user asks to start/create/initialize/bootstrap a new Rust or cargo project.
+description: Scaffold a new Rust project with cargo — creates the directory via cargo new, then adds a comprehensive .gitignore, MIT license, README, CI/CD GitHub Actions workflows, and seeded git commits. Also finishes a partially set-up Rust project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new Rust or cargo project, or to complete/fill in the setup of an existing one.
 ---
 
 # New Rust project (cargo)
 
 Create a fresh Rust project with `cargo new`, then layer on a comprehensive
-`.gitignore`, MIT license, README, and per-step git commits.
+`.gitignore`, MIT license, README, GitHub Actions CI/CD workflows, and per-step
+git commits.
 
 ## Inputs
 
 - **project name** (required) — directory + crate name.
+
+## Tool preference
+
+Prefer language-native tooling (`cargo`) for anything it can generate; use npx
+generators (`npx gitignore`, `npx license`) where cargo has no equivalent; fall
+back to hand-written content or bundled reference files only when neither is
+available.
+
+## Partially set-up projects
+
+This skill also finishes a project that is already partially set up. Every step
+is idempotent — before running a step, check whether its output already exists:
+
+- If `Cargo.toml` already exists, skip cargo generation entirely (`cargo new` /
+  `cargo init`) and continue with the remaining steps.
+- If the repo already has commits, skip the "New repo" empty commit.
+- An artifact that already exists (LICENSE, README, a workflow file) is kept
+  as-is, not overwritten; skip that step and its commit.
+- `.gitignore` is merged, not replaced: append only the missing entries
+  (including `.vscode/`).
+- Only commit a step that actually changed something, keeping the same commit
+  messages.
 
 ## Steps
 
@@ -24,13 +47,33 @@ Run these from the directory where the new project folder should live. Requires
    cd <project name>
    ```
 
+   If the folder already exists, `cargo new` refuses to run — use it in place
+   instead (`cargo init` names the crate after the directory and still runs
+   `git init` when needed):
+
+   ```bash
+   cd <project name>
+   cargo init
+   ```
+
 2. Seed an empty commit (cargo already ran `git init`):
 
    ```bash
    git commit --allow-empty -m "New repo"
    ```
 
-3. Create `.gitignore` with:
+3. `.gitignore` — cargo already seeded a minimal one; extend it with the
+   community Rust rules plus the editor dir (`npx gitignore` appends to an
+   existing file, so nothing is lost):
+
+   ```bash
+   npx gitignore rust
+   echo ".vscode/" >> .gitignore
+   ```
+
+   The Rust rules ignore `Cargo.lock` with a comment explaining the choice —
+   keep the entry for a library, delete it for an executable. If npx is
+   unavailable, append these entries by hand instead:
 
    ```text
    debug/
@@ -45,12 +88,23 @@ Run these from the directory where the new project folder should live. Requires
 
    # MSVC Windows builds of rustc generate these, which store debugging information
    *.pdb
+
+   .vscode/
    ```
 
    Then: `git add .gitignore && git commit -m "Added .gitignore"`
 
-4. Write `LICENSE` using the MIT text in `reference/mit-license.txt` (this skill
-   dir), replacing `<YEAR>` with the current year. Then:
+4. MIT license — generate it (`npx license MIT` writes `LICENSE`, filling the
+   year and the author from git config):
+
+   ```bash
+   npx license MIT
+   ```
+
+   Verify the copyright line reads `Copyright (c) <current year> <git config
+   user.name>` and fix it up if not. If npx is unavailable, fall back to
+   `reference/mit-license.txt` (this skill dir), replacing `<YEAR>` with the
+   current year followed by the author from `git config user.name`. Then:
    `git add LICENSE && git commit -m "Added MIT License"`
 
 5. README: `echo "# <project name>" > README.md`, then
@@ -66,10 +120,9 @@ Run these from the directory where the new project folder should live. Requires
    `target/doc/<crate_with_underscores>/`; if the crate name contains `-`,
    substitute underscores, e.g. `my-lib` → `my_lib`).
 
-   The template `uses:` pins are a current-as-of-authoring baseline and may have
-   gone stale. Before
-   committing, resolve the **latest stable major version** of each versioned
-   action and update its `uses:`:
+   The template `uses:` pins are a current-as-of-authoring baseline and may
+   have gone stale. Before committing, resolve the **latest stable major
+   version** of each versioned action and update its `uses:`:
 
    - `actions/checkout`
    - `Swatinem/rust-cache`
@@ -152,8 +205,15 @@ The templates are a strict baseline; toggle these per project:
 ## Verify the workflow with act
 
 Run the CI workflow locally in Docker with [act](https://github.com/nektos/act)
-before pushing. Requires `act` on PATH and Docker Desktop running (`docker info`
-must succeed). From the project root:
+before pushing — when the tooling is present. First check for it:
+
+```bash
+command -v act && docker info >/dev/null 2>&1
+```
+
+If `act` is not on PATH or Docker is not running, **skip this whole section** —
+it is optional validation, not a failure; state in the final report that act
+verification was skipped and why. Otherwise, from the project root:
 
 1. `act -l` — list the jobs act resolves.
 2. `act push` — only `build-and-test` runs; `lint-and-format` is skipped by the
@@ -168,4 +228,6 @@ the `ubuntu-latest` leg); the `docs` job (real GitHub Pages) and `coverage` job
 (Codecov, develop-only) can't run under act. Scope act to the runnable jobs with
 `act push -j build-and-test` and `act pull_request -j lint-and-format`.
 
-Report the created project path and the act results.
+Report the created project path, any steps skipped because the project was
+already partially set up, and the act results (or that act verification was
+skipped and why).

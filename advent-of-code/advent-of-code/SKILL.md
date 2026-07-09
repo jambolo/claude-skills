@@ -8,9 +8,9 @@ description: >
       documentation tailored to the language and environment;
   (2) scaffold — bootstrap a new AoC project, delegating repo setup to the
       matching new-<language>-project skill (new-rust-project,
-      new-cpp-project, new-typescript-project, new-julia-project) when one
-      exists, then layering on an AoC-specific structure researched from
-      community practice for that language;
+      new-cpp-project, new-typescript-project, new-julia-project,
+      new-haskell-project) when one exists, then layering on an AoC-specific
+      structure researched from community practice for that language;
   (3) stub — add a stub for a new day to an existing project;
   (4) run — execute a day's solution and verify its output against the answers
       in README.md.
@@ -218,6 +218,7 @@ CI workflow.
 | C++ | `new-cpp-project` | Use the **executable** variant. |
 | TypeScript | `new-typescript-project` | Operates in the current directory — `mkdir` the project folder and `cd` in first. Pass through the user's npm/pnpm choice (ask if unstated, as that skill requires). |
 | Julia | `new-julia-project` | Package name must be a valid Julia identifier (e.g., `AdventOfCode2024`). |
+| Haskell | `new-haskell-project` | Hyphenated names are fine (`advent-of-code-2024`). Use the default **library + executable** kind — days become further executables over the shared library. |
 
 For any other language, bootstrap inline, matching the same conventions the
 scaffolder skills share:
