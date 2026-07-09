@@ -36,7 +36,7 @@ Scaffolds a C++ CMake project as an **executable** (default) or **library**, ren
 
 The library variant additionally produces a Doxygen config, a CMake package config (`find_package` support with install/export wiring), and a GTest `test/` directory whose GoogleTest dependency is fetched via `FetchContent` when tests are enabled (`-D<name>_BUILD_TESTS=ON`).
 
-CI builds and runs `ctest` on an `ubuntu-latest` + `windows-latest` matrix; pull requests also get a `clang-format` check and a `clang-tidy` lint against the CMake compile database.
+CI builds and runs `ctest` on an `ubuntu-latest` + `windows-latest` matrix; pull requests also get a `clang-format` check and a `clang-tidy` lint against the CMake compile database. Library scaffolds additionally get a **docs** job (master only — Doxygen HTML to GitHub Pages), a **coverage** job (develop only — gcovr results to Codecov), and a **CD workflow** that watches the `project()` version in `CMakeLists.txt` on master, tags `v<version>`, and merges master back into develop.
 
 ### new-haskell-project
 

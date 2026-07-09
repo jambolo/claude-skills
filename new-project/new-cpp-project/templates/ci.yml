@@ -40,3 +40,58 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
       - name: Lint
         run: git ls-files '*.cpp' | xargs -r clang-tidy -p build
+
+  docs:
+    name: Build and deploy docs
+    if: github.ref == 'refs/heads/master'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      pages: write
+      contents: read
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen graphviz
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -D@PROJECT_NAME@_DOXYGEN_OUTPUT_DIRECTORY=${{ github.workspace }}/build/docs
+      - name: Build documentation
+        run: cmake --build build --target docs
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/docs/html
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  coverage:
+    name: Coverage
+    if: github.ref == 'refs/heads/develop'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install gcovr
+        run: pipx install gcovr
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -D@PROJECT_NAME@_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS=--coverage
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --no-tests=ignore
+      - name: Generate coverage report
+        run: gcovr -r . --xml -o coverage.xml --exclude 'build/' --exclude 'test/'
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
