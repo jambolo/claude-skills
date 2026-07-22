@@ -46,6 +46,10 @@ duplicated across all three — keep them in sync.
 | `<plan-name>-<id>.md` | decomposer | supervisor, worker |
 | `<plan-name>-<id>-report.md` | worker | supervisor |
 
+Every one of these files lives in a single directory recorded as `artifacts-dir` in the
+ledger's Plan section — the planner sets it (`docs/` is conventional); the decomposer and
+supervisor resolve artifact paths from it rather than guessing.
+
 **Roles & models**
 
 - **planner**, **decomposer**, **supervisor** run on the expensive model (Opus), each
@@ -78,6 +82,16 @@ elegant (exact paths, commands, expected strings — no "see above"); self-conta
 sections. Cut anything only a human needs — intros, transitions, summaries. Completeness
 first, compactness second, polish never.
 
+**Worker report & commit protocol**
+
+A step ends in exactly ONE commit containing every changed `files_in_scope` path — the
+report included, so the worker writes `<plan-name>-<id>-report.md` BEFORE committing. Report
+fields: `status: pass | fail | missing-base` · `base` (the SHA the work started from) ·
+`changes` (what was actually done) · `acceptance` (each command with its verbatim output) ·
+`deviations` (anything done other than as instructed, else "none"). A report never contains
+its own commit SHA, branch, or anything else self-referential — the supervisor reads commit
+identity from git, and a SHA recorded inside the commit it names cannot be written.
+
 You own only the first three files; the rest are produced downstream, listed so your brief
 and roadmap carry everything those stages need.
 
@@ -95,14 +109,18 @@ Pitfalls).
 ### 2. Establish the plan-name
 
 Choose a short kebab-case `<plan-name>` from the goal (e.g. `add-oauth-login`,
-`migrate-to-vitest`). Every artifact is keyed by it. State it to the user.
+`migrate-to-vitest`). Every artifact is keyed by it. Also choose the `artifacts-dir` all
+plan artifacts will live in — `docs/` if the repo has one, else the repo root. State both
+to the user.
 
 ### 3. Write the brief
 
 `<plan-name>-brief.md` is the durable "what and why". The decomposer **projects** slices
 of it into each worker's step, so anything a worker could need must be here — assume
 workers know nothing else. Its only reader is the decomposer: dense structured facts —
-exact paths, commands, names — not narrative.
+exact paths, commands, names — not narrative. Pin position-dependent facts: when the brief
+cites line numbers, state the commit they were read at and that edits shift them — so
+downstream stages re-verify against live source instead of trusting the snapshot.
 
 ```markdown
 # <plan-name> — Brief
@@ -175,6 +193,7 @@ updates Steps and appends Revisions.
 - working-branch: <local branch all pipeline commits accumulate on>
 - starting-commit: <full SHA of working-branch HEAD at seeding>
 - default-branch: <remote default branch, or "none">
+- artifacts-dir: <directory every plan artifact lives in, e.g. docs/>
 
 ## Phases
 | Phase | Status  | Notes |

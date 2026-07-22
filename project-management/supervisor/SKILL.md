@@ -47,6 +47,10 @@ duplicated across all three — keep them in sync.
 | `<plan-name>-<id>.md` | decomposer | supervisor, worker |
 | `<plan-name>-<id>-report.md` | worker | supervisor |
 
+Every one of these files lives in a single directory recorded as `artifacts-dir` in the
+ledger's Plan section — the planner sets it (`docs/` is conventional); the decomposer and
+supervisor resolve artifact paths from it rather than guessing.
+
 **Roles & models**
 
 - **planner**, **decomposer**, **supervisor** run on the expensive model (Opus), each
@@ -79,6 +83,16 @@ elegant (exact paths, commands, expected strings — no "see above"); self-conta
 sections. Cut anything only a human needs — intros, transitions, summaries. Completeness
 first, compactness second, polish never.
 
+**Worker report & commit protocol**
+
+A step ends in exactly ONE commit containing every changed `files_in_scope` path — the
+report included, so the worker writes `<plan-name>-<id>-report.md` BEFORE committing. Report
+fields: `status: pass | fail | missing-base` · `base` (the SHA the work started from) ·
+`changes` (what was actually done) · `acceptance` (each command with its verbatim output) ·
+`deviations` (anything done other than as instructed, else "none"). A report never contains
+its own commit SHA, branch, or anything else self-referential — the supervisor reads commit
+identity from git, and a SHA recorded inside the commit it names cannot be written.
+
 **Step fields you act on** (the decomposer authors them): `depends_on` (ordering) ·
 `route` (`mechanical` → worker, `judgment` → escalate) · `files_in_scope` (the only paths
 that may change) · `acceptance` (command + exact expected result — you re-run it) ·
@@ -89,12 +103,15 @@ that may change) · `acceptance` (command + exact expected result — you re-run
 For every step, independently of the worker's report:
 
 1. **Re-run every `acceptance` command yourself** against the tree the worker produced,
-   and confirm the result matches the step's exact expected result.
+   and confirm the result matches the step's exact expected result. Check the check: a
+   result satisfied by content manufactured for the check rather than by the step's real
+   work (a hidden comment inserted to hit a grep count) is a FAIL even though the command
+   passes — and usually a sign the acceptance was mis-specified (see Decide, option b).
 2. **Confirm scope:** `git -C <worktree> diff --name-only <BASE>..HEAD` — where `BASE` is
    the wave base the worktree was created at — must be a subset of `files_in_scope`. Any
-   out-of-scope change fails the step, as does any commit in the worktree that isn't this
-   step's own work (a cherry-picked sibling or dependency commit signals a stale base or a
-   wandering worker).
+   out-of-scope change fails the step, as does any commit that isn't this step's own
+   single commit (the contract mandates exactly one; a cherry-picked sibling or
+   dependency commit signals a stale base or a wandering worker).
 3. Treat `<plan-name>-<id>-report.md` as a hint about what the worker *believes* it did,
    never as proof. Ground truth is the acceptance result and the diff.
 
@@ -152,16 +169,24 @@ Repeat until the phase is done:
   > `files_in_scope`. If your starting tree seems to be missing prerequisite work (e.g. the
   > step's first assertion fails), STOP and say so in your report — never fetch, pull,
   > merge, rebase, cherry-pick, or switch branches to repair it. Run the `acceptance`
-  > command yourself and fix within scope until it passes. Commit only the files named in
-  > `files_in_scope`, with a message naming the step id. Then write
-  > `<plan-name>-<id>-report.md` in the worktree listing what you did, the exact acceptance
-  > output, your branch, and your commit SHA (`git -C <worktree path> rev-parse HEAD`) —
-  > terse and structured; a model reads it, not a human. Touch nothing else.
+  > command yourself and fix within scope until it passes; if a check looks unsatisfiable
+  > by honest work (it contradicts the step's own instructions or required content), STOP
+  > and report the discrepancy — never add content whose only purpose is to make a check
+  > pass. Then write `<plan-name>-<id>-report.md` in the worktree — terse and structured, a
+  > model reads it, not a human — with exactly these fields: `status: pass | fail |
+  > missing-base`; `base:` the SHA you started from; `changes:` what you actually did;
+  > `acceptance:` each command with its verbatim output; `deviations:` anything done other
+  > than as instructed, else "none". Do NOT record your own commit SHA or branch — the
+  > supervisor reads those from git. Finish with exactly ONE commit containing every
+  > changed `files_in_scope` path including this report, message naming the step id — no
+  > follow-up commits, no amending. Touch nothing else.
 
   A `judgment` step is **not** given to a cheap worker — handle it on the expensive model
   or escalate to a human (see Routing). A **lone** ready step (no parallel siblings) may
   run directly in the working tree with no worktree — hand it the repo root as its working
-  path, same contract.
+  path, same contract — but first commit any pending plan-artifact edits so
+  `git status --porcelain` is clean at launch: a worker must never meet supervisor-owned
+  uncommitted state (it wastes worker attention and poisons status-based checks).
 - As each worker returns, apply the **Verification protocol** in that worker's worktree.
 
 ### 4. Decide per step
@@ -169,16 +194,23 @@ Repeat until the phase is done:
 - **PASS** (acceptance matches, scope clean) → **merge** the worktree's branch into the
   current branch (clean, because scopes are disjoint), record the resulting commit SHA and
   the produced files in the ledger, remove the worktree and its `wt/` branch, and mark the
-  step **done**.
+  step **done**. Commit the ledger update — per step is cheapest to reason about, and it
+  is mandatory before any in-tree launch; an uncommitted ledger is lost state after a
+  crash and visible dirt to the next in-tree worker.
 - **FAIL** → choose:
   - **(a) Retry** — for a transient or worker-level miss on a `mechanical` step: hand a
     corrected packet and re-run the **same** step, bounded (≤2 retries).
-  - **(b) Revise** — for a wrong step or wrong plan (acceptance unsatisfiable as written,
-    scope overlap, missing context): run the step's `rollback` and discard the worktree,
-    write a **revision note** (below), invoke the `decomposer` (its revise operation) via
-    the **Skill tool** with that note and the phase number, then re-run the affected steps
-    once corrected steps land.
-  - **(c) Escalate** — for a `judgment` step, or repeated failure after retry + revision:
+  - **(b) Correct in flight** — when the work is right but the step's spec is defective
+    (typically an `acceptance` check honest output cannot satisfy): hand the worker a
+    corrected packet directly, skipping the decomposer round-trip — but treat it as a real
+    revision: append a Revisions row AND commit the corrected step file, so the artifact
+    history matches what actually ran.
+  - **(c) Revise** — for a wrong step or wrong plan (scope overlap, missing context, step
+    too large — the step itself, not just its check): run the step's `rollback` and
+    discard the worktree, write a **revision note** (below), invoke the `decomposer` (its
+    revise operation) via the **Skill tool** with that note and the phase number, then
+    re-run the affected steps once corrected steps land.
+  - **(d) Escalate** — for a `judgment` step, or repeated failure after retry + revision:
     hand it to a human or resolve it on the expensive model.
 
   Independent in-flight siblings still finish and merge — only the failed step's
@@ -188,8 +220,8 @@ Repeat until the phase is done:
 
 When every step is done, verify the phase's Definition of Done from the roadmap. If it
 holds: mark the phase complete in the ledger, advance `current-phase`, then commit all
-outstanding plan-artifact changes — `git add <plan-name>-*.md` (ledger, brief, roadmap,
-plus any step or report files not already committed) — message
+outstanding plan-artifact changes — `git add <artifacts-dir>/<plan-name>-*.md` (ledger,
+brief, roadmap, plus any step or report files not already committed) — message
 `supervise(<plan-name>): phase <N> complete`. Only then hand back to the user for the next
 phase. If it doesn't hold, the phase wasn't fully covered — write a revision note and send
 it to the `decomposer`.
@@ -216,6 +248,11 @@ it to the `decomposer`.
   Disjoint scopes ⇒ no conflicts. **A merge conflict is not something to hand-resolve** —
   it means two co-parallel steps overlapped in scope, a decomposition bug: roll back and
   send a revision note to the `decomposer`.
+- After a parallel wave merges, re-verify any facts one step recorded ABOUT files a
+  sibling edited — line-number links, counts, quoted signatures. Disjoint scopes keep
+  merges clean but do not keep embedded facts true. Fix drift in a supervisor integration
+  commit and note the coupling in a Revisions row so the decomposer serializes those steps
+  next time.
 - Clean up deterministically, pass or fail: `git worktree remove` the worktree, then delete
   its branch (`git branch -d wt/<plan-name>-<id>` after a merge, `-D` when discarding).
 
@@ -260,10 +297,13 @@ the `decomposer` reads when revising.
   self-reconcile (cherry-pick / merge sibling work), corrupting scope checks and merges.
   Run the step-3 gates (dependency ancestry + worktree HEAD == `BASE`) before every wave.
 - **Enforce scope hard** — out-of-scope changes fail the step even if acceptance passes.
+- **A passing command is not passing work** — content contrived to satisfy a check fails
+  the step and flags the acceptance as mis-specified (Decide, option b).
 - **Don't hand-resolve merge conflicts** — a conflict is a scoping bug → revision.
 - **Bound the loop** — cap retries; escalate rather than spin.
-- **Keep the ledger truthful and current** — commit SHAs, statuses, revisions — so a run
-  can resume exactly where it stopped.
+- **Keep the ledger truthful, current, and committed** — commit SHAs, statuses, revisions,
+  committed at latest before every in-tree launch — so a run can resume exactly where it
+  stopped.
 - **A phase ends with a commit** — the ledger, brief, roadmap, and any stray step/report
   files committed on the current branch.
 - **Clean up worktrees** whether the step passed or failed.
