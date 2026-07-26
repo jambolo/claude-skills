@@ -180,9 +180,16 @@ it writes.
 `files_in_scope` = its own report alone; `actions` = run the phase/project Definition of
 Done checks and record command, expected, actual, PASS/FAIL per item plus an overall
 verdict. An honestly-failing report is a SUCCESSFUL gate step — the supervisor routes the
-failure. Give a gate step checks on project state only, never checks its own report
-perturbs (working-tree cleanliness, "everything committed") — those belong to the
-supervisor.
+failure. Its `acceptance` therefore targets the report, never project state: presence
+checks that the report contains one command/expected/actual/PASS-FAIL row per DoD item
+plus an overall verdict — satisfiable by an honest FAIL exactly as by a PASS. Never
+author the DoD commands themselves as the gate's acceptance: a broken project would turn
+an honest report into a failed step, and the supervisor's verification re-run would
+execute the full DoD a second time before its own phase check. Report truthfulness is not
+the acceptance's job — the supervisor's phase Definition of Done run is what catches a
+fabricated PASS. The checks inside `actions` are on project state only — never state the
+step's own report perturbs (working-tree cleanliness, "everything committed"); those
+belong to the supervisor.
 
 ## Inputs & orientation
 

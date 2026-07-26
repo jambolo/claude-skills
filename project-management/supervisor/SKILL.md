@@ -218,8 +218,10 @@ Repeat until the phase is done:
 
 ### 5. Phase Definition of Done
 
-When every step is done, verify the phase's Definition of Done from the roadmap. If it
-holds: mark the phase complete in the ledger, advance `current-phase`, then commit all
+When every step is done, verify the phase's Definition of Done from the roadmap. A gate
+step's report, if the phase has one, is a lead for which items to scrutinize — never a
+substitute for running the checks yourself. If the DoD holds: mark the phase complete in
+the ledger, advance `current-phase`, then commit all
 outstanding plan-artifact changes — `git add <artifacts-dir>/<plan-name>-*.md` (ledger,
 brief, roadmap, plus any step or report files not already committed) — message
 `supervise(<plan-name>): phase <N> complete`. Only then hand back to the user for the next
