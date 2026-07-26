@@ -1,0 +1,5 @@
+[package]
+name = "@PROJECT_NAME@-core"
+version = "0.1.0"
+edition = "2024"
+description = "UI-agnostic compute core. All application logic lives here; the Tauri shell stays thin."

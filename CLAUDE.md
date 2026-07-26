@@ -18,6 +18,7 @@ new-project/          # family
   new-haskell-project/
   new-julia-project/
   new-rust-project/
+  new-tauri-project/
   new-typescript-project/
 project-management/   # family
   planner/            # leaf skills (planner → decomposer → supervisor pipeline)
@@ -42,7 +43,7 @@ Leaf folder name must equal frontmatter `name` (kebab-case). Installation and di
 ## Three skill families
 
 - **`advent-of-code`** — language-agnostic, multi-operation (init / scaffold / stub / run). Instruction-only (no templates). For existing projects it derives everything from the project's CLAUDE.md and files. Its scaffold operation is layered: repo bootstrap is **delegated to the matching `new-*-project` skill** via the Skill tool (inline fallback following the shared scaffolder conventions for languages without one), then the AoC-specific layout is **researched from community practice** (well-starred repos, templates, dominant tooling) rather than hardcoded — the chosen structure and its sources are recorded in the generated project's CLAUDE.md.
-- **`new-*-project`** — per-language scaffolders (cpp, haskell, julia, rust, typescript). Also serve as the bootstrap layer for `advent-of-code` scaffolds, so behavior changes here propagate there.
+- **`new-*-project`** — per-language scaffolders (cpp, haskell, julia, rust, typescript), plus the multi-stack `new-tauri-project` (Rust compute-core + TypeScript frontend + Tauri shell). Also serve as the bootstrap layer for `advent-of-code` scaffolds, so behavior changes here propagate there.
 - **`project-management`** — the **planner → decomposer → supervisor** pipeline for executing a large goal with a fleet of cheap-model (Sonnet) worker subagents under expensive-model (Opus) supervision. `planner` turns a goal into a `<plan-name>-brief.md`, phased `<plan-name>-roadmap.md`, and seeded `<plan-name>-ledger.md`; `decomposer` breaks one phase into atomic, parallelizable step files `<plan-name>-<id>.md`; `supervisor` launches a worker per step (parallel steps isolated in git worktrees), verifies each against ground truth, merges passing work, and drives the failure → revision loop back through the decomposer. The three skills install independently and cooperate only through the shared Markdown artifacts keyed by `<plan-name>` — the **"Shared model" section is duplicated verbatim across all three SKILL.md files and must be kept in sync** when edited.
 
 ## Scaffolder conventions (shared across `new-*`)
