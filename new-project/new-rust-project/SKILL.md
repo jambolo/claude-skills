@@ -142,7 +142,7 @@ Run these from the directory where the new project folder should live. Requires
    ```
 
    Take the highest stable semver (ignore tags containing `-`), pin to its major
-   — `v4.2.2` → `actions/checkout@v4`. If `git ls-remote` is unavailable, read
+   — `v6.1.0` → `actions/checkout@v6`. If `git ls-remote` is unavailable, read
    the resolved tag from `https://github.com/<owner>/<repo>/releases/latest`.
 
    Don't commit yet — the CD workflow (step 8) is committed together with it.

@@ -122,6 +122,23 @@ it.
    - **Library** — read `templates/LIBRARY_TEMPLATE_CMakeLists.txt.in`, replace
      `@PROJECT_NAME@` and `@PROJECT_DESCRIPTION@`. Write to `CMakeLists.txt`.
 
+   The template's FetchContent `GIT_TAG` pins (active GoogleTest block plus
+   the commented-out example dependencies) are a current-as-of-authoring
+   baseline and may have gone stale. Before committing, resolve the **latest
+   stable release tag** of each pinned repo and update its `GIT_TAG` — also
+   inside the commented blocks, so enabling one later starts current. Unlike
+   the workflow actions, FetchContent needs the full exact tag (e.g.
+   `v1.17.0`), not just the major. Resolve with `git ls-remote` (no `gh`, no
+   auth):
+
+   ```bash
+   git ls-remote --tags --refs https://github.com/google/googletest 'v*'
+   ```
+
+   Take the highest stable semver tag (ignore tags containing `-`). If
+   `git ls-remote` is unavailable, read the tag from
+   `https://github.com/<owner>/<repo>/releases/latest`.
+
    Then `git add CMakeLists.txt && git commit -m "Added default CMakeLists.txt"`.
 
 6. Workflows — copy `templates/ci.yml` (this skill dir) to

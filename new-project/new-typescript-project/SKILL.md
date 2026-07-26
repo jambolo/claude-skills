@@ -203,10 +203,8 @@ Run these from the directory where the new project folder should live. Requires
    — `v6.0.3` → `actions/checkout@v6`. If `git ls-remote` is unavailable, read
    the resolved tag from `https://github.com/<owner>/<repo>/releases/latest`.
 
-   One more baseline to refresh in the same pass: `node-version:` — bump to
-   the current active LTS major if it has moved past `24` (check
-   https://endoflife.date/nodejs or
-   https://nodejs.org/en/about/previous-releases).
+   `node-version: lts/*` needs no refresh — setup-node resolves the current
+   Node LTS at run time.
 
    Note: `pnpm/action-setup` deliberately has **no `version:` input** — it
    reads the pnpm version from the `packageManager` field that `pnpm init`

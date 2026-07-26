@@ -25,7 +25,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: lts/*
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Compile
@@ -41,7 +41,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: lts/*
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Lint
@@ -66,7 +66,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: lts/*
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build documentation
@@ -91,7 +91,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: lts/*
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Coverage
