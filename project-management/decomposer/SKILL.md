@@ -40,8 +40,8 @@ duplicated across all three — keep them in sync.
 
 | File | Written by | Read by |
 | --- | --- | --- |
-| `<plan-name>-brief.md` | planner | decomposer |
-| `<plan-name>-roadmap.md` | planner | decomposer |
+| `<plan-name>-brief.md` | planner (seed + amendments) | decomposer |
+| `<plan-name>-roadmap.md` | planner (seed + amendments) | decomposer |
 | `<plan-name>-ledger.md` | planner (seed), decomposer (step registry), supervisor (results) | all three |
 | `<plan-name>-<id>.md` | decomposer | supervisor, worker |
 | `<plan-name>-<id>-report.md` | worker | supervisor |
@@ -92,6 +92,25 @@ fields: `status: pass | fail | missing-base` · `base` (the SHA the work started
 its own commit SHA, branch, or anything else self-referential — the supervisor reads commit
 identity from git, and a SHA recorded inside the commit it names cannot be written.
 
+**Brief amendment protocol**
+
+The brief and roadmap stay planner-owned for the plan's whole life. When the decomposer
+or supervisor finds them defective mid-execution — a wrong or unsatisfiable constraint, a
+stale fact, a mis-specified DoD — it does NOT edit them and does NOT work around the
+defect in step context or ledger notes. The discoverer writes an **amendment note** and
+invokes the `planner` skill with it (Skill tool), mirroring the supervisor → decomposer
+revision loop: the discoverer may lack the context to edit correctly, exactly as a worker
+may not repair its own step. Note fields: `trigger` (phase/step where the defect
+surfaced) · `defect` (the text at fault, quoted exactly) · `observed` (what actually
+happened) · `root cause` · `suggested amendment` · `blast radius` (sections/phases the
+discoverer thinks are affected — a lead, not a verdict). The planner alone edits the
+brief/roadmap — in place, never an appendix — checks ripple across brief sections, the
+project DoD, and roadmap phase DoDs, appends a ledger Revisions row, and commits
+`amend(<plan-name>): <what>` before returning. Gate-strengthening amendments proceed
+without asking; gate-weakening or scope/DoD changes need explicit user approval. Pending
+steps embedding the stale text then go through the decomposer's revision operation;
+completed steps ran against the old text and stay untouched.
+
 ## The step schema
 
 Emit one `<plan-name>-<id>.md` per step, using exactly these fields:
@@ -131,7 +150,9 @@ Field notes:
 - **files_in_scope** — the contract that makes parallelism safe: the worker touches only
   these paths, and the supervisor rejects the step if anything else changed. Always list
   the step's own `<plan-name>-<id>-report.md` — it lands in the step's single commit and
-  must pass the scope check.
+  must pass the scope check. Entries are plain paths only — no backticks or other
+  markdown formatting — so the scope check compares them literally against
+  `git diff --name-only` output.
 - **actions** — when `depends_on` is non-empty, the first action asserts a concrete
   artifact of each dependency (exact path, or exact symbol in a named file) and tells the
   worker to STOP and report a missing base if the check fails — never to fetch, merge, or
@@ -204,6 +225,12 @@ Read, in order:
 You are given the **phase number**. If a **revision note** is present (from the supervisor
 or the user) → Operation B; otherwise → Operation A.
 
+If during either operation the brief or roadmap itself proves defective — an
+unsatisfiable constraint, a stale fact, a DoD honest work cannot meet — do not
+compensate in step `context` or ledger notes: write an amendment note and invoke the
+`planner` skill via the **Skill tool** (see Brief amendment protocol), then decompose
+from the amended text.
+
 ## Operation A — decompose a phase (fresh)
 
 1. From the target phase, enumerate the atomic units of work that together meet the phase
@@ -221,8 +248,17 @@ or the user) → Operation B; otherwise → Operation A.
    a `rollback`.
 7. Write one `<plan-name>-<id>.md` per step, in the ledger's `artifacts-dir`.
 8. Register every step in the ledger's **Steps** section: `id | phase | status=pending |
-   files (from files_in_scope) | commit (blank)`.
-9. Commit the step files and the ledger update together — message
+   files (from files_in_scope) | commit (blank)`. A step enumerated during decomposition
+   but judged superfluous is still registered — `status=removed`, reason in the phase
+   notes — never silently dropped: an unexplained id gap reads as lost work.
+9. Below the Steps table, add a **Phase <N> notes** block: the phase dependency graph
+   (which steps run in parallel, which step gates), cross-step couplings, bootstrap or
+   environment facts (e.g. build-order requirements in fresh worktrees), and any
+   emergent contracts later phases must honor (pinned type names, DOM contracts,
+   interfaces). These notes serve the supervisor and future decomposer runs — workers
+   never read the ledger, so anything a worker needs must STILL be projected into its
+   step file.
+10. Commit the step files and the ledger update together — message
    `decompose(<plan-name>): phase <N> steps`. Plan state is versioned like everything
    else: the revision loop relies on history for which version of a step a worker actually
    ran against.
@@ -241,7 +277,8 @@ not starting over.
    fix the actual failure (re-partition overlapping scopes, split a too-large step, tighten
    a vague acceptance command).
 4. Update the ledger's **Steps** registry: mark the failed step superseded and add the new
-   ids as `pending`.
+   ids as `pending`. A revision that deletes a step outright marks it `removed` (reason
+   in the phase notes) — its row and id stay in the registry.
 5. Commit the corrected/added step files and the ledger update together — message
    `decompose(<plan-name>): revise phase <N>`. The superseded version must stay reachable
    in history; never leave a revision sitting uncommitted in the working tree.
@@ -264,6 +301,10 @@ not starting over.
   worker sandboxes may block the git forms behind permission prompts, stalling the step.
 - **Distill, don't dump** — project the relevant slice of the brief, not the whole thing.
 - **On revision, touch only what's broken** — never re-decompose completed work.
+- **A defective brief is the planner's to fix** — send an amendment note (see Brief
+  amendment protocol); never patch around it in step context or ledger notes.
+- **Never erase a step id** — a step judged superfluous stays registered as `removed`
+  with its reason in the phase notes; every id in a phase stays accounted for.
 - **Finish with a commit** — both operations end by committing the step files plus the
   ledger update; an emit that never lands in history can't be audited or revised against.
 - **Don't clobber** — leave valid existing step files and completed ledger entries intact.

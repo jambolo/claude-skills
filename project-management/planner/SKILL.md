@@ -11,8 +11,12 @@ description: >
   "draft a brief and roadmap", "set up the plan for the decomposer/supervisor", or
   is starting a big multi-step effort to be executed phase by phase. Hand the brief
   and roadmap to the `decomposer` skill to break a chosen phase into executable
-  steps. This skill does high-level planning ONLY — it does not break phases into
-  steps (that is `decomposer`) or execute them (that is `supervisor`).
+  steps. Also the sole editor of the brief and roadmap after seeding: invoke this
+  skill with an **amendment note** — from the decomposer, the supervisor, or the
+  user saying "amend the brief/roadmap" — to correct a defective constraint, fact,
+  or Definition of Done mid-run (Operation B). This skill does high-level planning
+  ONLY — it does not break phases into steps (that is `decomposer`) or execute
+  them (that is `supervisor`).
 ---
 
 # Planner
@@ -28,7 +32,10 @@ large goal with a supervised fleet of cheap-model workers:
 
 Think hard about the goal *once*, at a high level, and write it down so the rest of the
 pipeline runs without re-deriving strategy. You produce three files and stop — you do
-**not** design steps, touch code, or execute anything.
+**not** design steps, touch code, or execute anything. You also stay the sole editor of
+the brief and roadmap for the plan's whole life: when execution surfaces a defect in
+them, the discoverer sends you an **amendment note** and you apply the fix
+(Operation B — amend).
 
 ## Shared model (planner → decomposer → supervisor)
 
@@ -40,8 +47,8 @@ duplicated across all three — keep them in sync.
 
 | File | Written by | Read by |
 | --- | --- | --- |
-| `<plan-name>-brief.md` | planner | decomposer |
-| `<plan-name>-roadmap.md` | planner | decomposer |
+| `<plan-name>-brief.md` | planner (seed + amendments) | decomposer |
+| `<plan-name>-roadmap.md` | planner (seed + amendments) | decomposer |
 | `<plan-name>-ledger.md` | planner (seed), decomposer (step registry), supervisor (results) | all three |
 | `<plan-name>-<id>.md` | decomposer | supervisor, worker |
 | `<plan-name>-<id>-report.md` | worker | supervisor |
@@ -92,10 +99,29 @@ fields: `status: pass | fail | missing-base` · `base` (the SHA the work started
 its own commit SHA, branch, or anything else self-referential — the supervisor reads commit
 identity from git, and a SHA recorded inside the commit it names cannot be written.
 
+**Brief amendment protocol**
+
+The brief and roadmap stay planner-owned for the plan's whole life. When the decomposer
+or supervisor finds them defective mid-execution — a wrong or unsatisfiable constraint, a
+stale fact, a mis-specified DoD — it does NOT edit them and does NOT work around the
+defect in step context or ledger notes. The discoverer writes an **amendment note** and
+invokes the `planner` skill with it (Skill tool), mirroring the supervisor → decomposer
+revision loop: the discoverer may lack the context to edit correctly, exactly as a worker
+may not repair its own step. Note fields: `trigger` (phase/step where the defect
+surfaced) · `defect` (the text at fault, quoted exactly) · `observed` (what actually
+happened) · `root cause` · `suggested amendment` · `blast radius` (sections/phases the
+discoverer thinks are affected — a lead, not a verdict). The planner alone edits the
+brief/roadmap — in place, never an appendix — checks ripple across brief sections, the
+project DoD, and roadmap phase DoDs, appends a ledger Revisions row, and commits
+`amend(<plan-name>): <what>` before returning. Gate-strengthening amendments proceed
+without asking; gate-weakening or scope/DoD changes need explicit user approval. Pending
+steps embedding the stale text then go through the decomposer's revision operation;
+completed steps ran against the old text and stay untouched.
+
 You own only the first three files; the rest are produced downstream, listed so your brief
 and roadmap carry everything those stages need.
 
-## Operation — plan a goal
+## Operation A — plan a goal
 
 ### 1. Orient and clarify
 
@@ -202,7 +228,8 @@ updates Steps and appends Revisions.
 | 2     | pending |       |
 
 ## Steps
-<!-- decomposer fills per phase: id | phase | status | files | commit -->
+<!-- decomposer fills per phase: id | phase | status | files | commit,
+     plus a "Phase <N> notes" block: dependency graph, couplings, emergent contracts -->
 
 ## Revisions
 <!-- supervisor appends: phase | failed step | revision note | outcome -->
@@ -212,6 +239,34 @@ updates Steps and appends Revisions.
 
 Tell the user the three files are ready and the next move is to invoke the `decomposer`
 on a specific phase (usually phase 1).
+
+## Operation B — amend the brief or roadmap
+
+Invoked mid-execution with an **amendment note** (see Brief amendment protocol) from the
+decomposer, the supervisor, or the user. You are correcting the plan's source of truth,
+not re-planning — and not touching steps.
+
+1. Read the amendment note, then re-read the brief, roadmap, and ledger. The note's
+   `blast radius` is a lead, not a verdict — the ripple check is yours.
+2. Classify the change:
+   - **Strengthening** — a stricter gate or corrected fact that cannot hide a defect
+     (e.g. widening a forbidden-name grep to inflected forms): proceed without asking.
+   - **Weakening or scope/DoD change** — relaxing a gate, adding exclusions, dropping a
+     requirement: get explicit user approval first; if declined, return the note to the
+     discoverer unapplied.
+3. Edit the brief — and the roadmap where phase DoDs echo the same text — IN PLACE,
+   never as an appendix or a ledger note: downstream stages project from these files,
+   and a fix living anywhere else gets missed. Trace every place the defective text is
+   echoed: Context, Constraints, project DoD, roadmap phase DoDs.
+4. Append a ledger Revisions row: phase | trigger step | what was amended and why |
+   outcome `brief amended`.
+5. Commit the brief, roadmap, and ledger changes together — message
+   `amend(<plan-name>): <what>` — before handing back. The pre-amendment text stays
+   reachable in history, so the revision loop can still see which version any past step
+   ran against.
+6. Do NOT touch step files. Pending steps that embed the stale text are the
+   decomposer's revision job; completed steps ran against the old text and stay
+   untouched.
 
 ## Pitfalls
 
@@ -228,3 +283,6 @@ on a specific phase (usually phase 1).
   base, so a wrong value stalls execution.
 - **Don't clobber.** If artifacts for this `<plan-name>` already exist, read and update —
   preserve completed phases and recorded ledger state.
+- **Amendments are yours alone.** Downstream stages never edit the brief or roadmap —
+  they send amendment notes. On amendment, check ripple everywhere the defective text
+  echoes; the note's blast radius is a lead, not the answer.

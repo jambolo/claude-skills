@@ -41,8 +41,8 @@ duplicated across all three — keep them in sync.
 
 | File | Written by | Read by |
 | --- | --- | --- |
-| `<plan-name>-brief.md` | planner | decomposer |
-| `<plan-name>-roadmap.md` | planner | decomposer |
+| `<plan-name>-brief.md` | planner (seed + amendments) | decomposer |
+| `<plan-name>-roadmap.md` | planner (seed + amendments) | decomposer |
 | `<plan-name>-ledger.md` | planner (seed), decomposer (step registry), supervisor (results) | all three |
 | `<plan-name>-<id>.md` | decomposer | supervisor, worker |
 | `<plan-name>-<id>-report.md` | worker | supervisor |
@@ -92,6 +92,25 @@ fields: `status: pass | fail | missing-base` · `base` (the SHA the work started
 `deviations` (anything done other than as instructed, else "none"). A report never contains
 its own commit SHA, branch, or anything else self-referential — the supervisor reads commit
 identity from git, and a SHA recorded inside the commit it names cannot be written.
+
+**Brief amendment protocol**
+
+The brief and roadmap stay planner-owned for the plan's whole life. When the decomposer
+or supervisor finds them defective mid-execution — a wrong or unsatisfiable constraint, a
+stale fact, a mis-specified DoD — it does NOT edit them and does NOT work around the
+defect in step context or ledger notes. The discoverer writes an **amendment note** and
+invokes the `planner` skill with it (Skill tool), mirroring the supervisor → decomposer
+revision loop: the discoverer may lack the context to edit correctly, exactly as a worker
+may not repair its own step. Note fields: `trigger` (phase/step where the defect
+surfaced) · `defect` (the text at fault, quoted exactly) · `observed` (what actually
+happened) · `root cause` · `suggested amendment` · `blast radius` (sections/phases the
+discoverer thinks are affected — a lead, not a verdict). The planner alone edits the
+brief/roadmap — in place, never an appendix — checks ripple across brief sections, the
+project DoD, and roadmap phase DoDs, appends a ledger Revisions row, and commits
+`amend(<plan-name>): <what>` before returning. Gate-strengthening amendments proceed
+without asking; gate-weakening or scope/DoD changes need explicit user approval. Pending
+steps embedding the stale text then go through the decomposer's revision operation;
+completed steps ran against the old text and stay untouched.
 
 **Step fields you act on** (the decomposer authors them): `depends_on` (ordering) ·
 `route` (`mechanical` → worker, `judgment` → escalate) · `files_in_scope` (the only paths
@@ -178,8 +197,9 @@ Repeat until the phase is done:
   > `acceptance:` each command with its verbatim output; `deviations:` anything done other
   > than as instructed, else "none". Do NOT record your own commit SHA or branch — the
   > supervisor reads those from git. Finish with exactly ONE commit containing every
-  > changed `files_in_scope` path including this report, message naming the step id — no
-  > follow-up commits, no amending. Touch nothing else.
+  > changed `files_in_scope` path including this report, commit message exactly
+  > `step(<plan-name>/<id>): <short summary>` — no follow-up commits, no amending. Touch
+  > nothing else.
 
   A `judgment` step is **not** given to a cheap worker — handle it on the expensive model
   or escalate to a human (see Routing). A **lone** ready step (no parallel siblings) may
@@ -194,7 +214,8 @@ Repeat until the phase is done:
 - **PASS** (acceptance matches, scope clean) → **merge** the worktree's branch into the
   current branch (clean, because scopes are disjoint), record the resulting commit SHA and
   the produced files in the ledger, remove the worktree and its `wt/` branch, and mark the
-  step **done**. Commit the ledger update — per step is cheapest to reason about, and it
+  step **done**. Commit the ledger update — message
+  `supervise(<plan-name>): record step <id>` — per step is cheapest to reason about, and it
   is mandatory before any in-tree launch; an uncommitted ledger is lost state after a
   crash and visible dirt to the next in-tree worker.
 - **FAIL** → choose:
@@ -212,6 +233,12 @@ Repeat until the phase is done:
     re-run the affected steps once corrected steps land.
   - **(d) Escalate** — for a `judgment` step, or repeated failure after retry + revision:
     hand it to a human or resolve it on the expensive model.
+  - **(e) Amend the plan source** — when the defect is in the BRIEF or ROADMAP itself
+    (an unsatisfiable constraint or DoD, a wrong pinned fact) rather than in the step:
+    write an amendment note and invoke the `planner` skill via the **Skill tool** (see
+    Brief amendment protocol) — never edit the brief/roadmap yourself and never work
+    around the defect in ledger notes. Once the amendment lands, route affected pending
+    steps through the decomposer as usual.
 
   Independent in-flight siblings still finish and merge — only the failed step's
   **dependents** wait.
@@ -226,7 +253,9 @@ outstanding plan-artifact changes — `git add <artifacts-dir>/<plan-name>-*.md`
 brief, roadmap, plus any step or report files not already committed) — message
 `supervise(<plan-name>): phase <N> complete`. Only then hand back to the user for the next
 phase. If it doesn't hold, the phase wasn't fully covered — write a revision note and send
-it to the `decomposer`.
+it to the `decomposer`. If the DoD itself is defective — honest, complete work cannot
+satisfy it — that is a brief/roadmap bug: send an amendment note to the `planner` (see
+Brief amendment protocol), not a revision to the decomposer.
 
 ## Worktree & merge mechanics
 
@@ -246,8 +275,8 @@ it to the `decomposer`.
   its store in seconds); if a bootstrap command is needed, run it in every worktree before
   handing it to the worker — workers must never improvise setup.
 - Verify **in the worktree** (acceptance + scope diff against `BASE`) before merging.
-- Merge passing `wt/<plan-name>-<id>` branches into the current branch one at a time.
-  Disjoint scopes ⇒ no conflicts. **A merge conflict is not something to hand-resolve** —
+- Merge passing `wt/<plan-name>-<id>` branches into the current branch one at a time,
+  merge-commit message `merge(<plan-name>): step <id>`. Disjoint scopes ⇒ no conflicts. **A merge conflict is not something to hand-resolve** —
   it means two co-parallel steps overlapped in scope, a decomposition bug: roll back and
   send a revision note to the `decomposer`.
 - After a parallel wave merges, re-verify any facts one step recorded ABOUT files a
@@ -270,8 +299,10 @@ it to the `decomposer`.
 Keep `<plan-name>-ledger.md` authoritative — it is what makes the run resumable and what
 the `decomposer` reads when revising.
 
-- **Steps** rows: set `status` to `done` (or `failed`/`superseded`), fill `files` (the
-  merged paths) and `commit` (the SHA on the current branch).
+- **Steps** rows: set `status` to `done` (or `failed`/`superseded`; or `removed` for a
+  step recognized as superfluous — record it with its reason in the phase notes, never
+  delete the row or reuse the id), fill `files` (the merged paths) and `commit` (the SHA
+  on the current branch).
 - **Plan**: update `current-phase` as phases complete.
 - **Revisions**: append `phase | failed step | revision note | outcome` whenever you send a
   step back to the decomposer.
@@ -302,6 +333,8 @@ the `decomposer` reads when revising.
 - **A passing command is not passing work** — content contrived to satisfy a check fails
   the step and flags the acceptance as mis-specified (Decide, option b).
 - **Don't hand-resolve merge conflicts** — a conflict is a scoping bug → revision.
+- **Brief defects go to the planner** — an amendment note (see Brief amendment
+  protocol), never a local edit, a workaround, or a ledger-note relay.
 - **Bound the loop** — cap retries; escalate rather than spin.
 - **Keep the ledger truthful, current, and committed** — commit SHAs, statuses, revisions,
   committed at latest before every in-tree launch — so a run can resume exactly where it
