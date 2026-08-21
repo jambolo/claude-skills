@@ -59,7 +59,7 @@
     },
     {
       "name": "supervisor",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "path": "project-management/supervisor",
       "family": "project-management"
     },

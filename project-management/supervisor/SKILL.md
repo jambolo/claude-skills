@@ -1,6 +1,6 @@
 ---
 name: supervisor
-version: 1.0.0
+version: 1.1.0
 description: >
   Final stage of the planner → decomposer → supervisor pipeline. Executes a
   decomposed phase: launches one cheap-model (Sonnet) worker subagent per step —
@@ -177,7 +177,8 @@ Repeat until the phase is done:
   remove and recreate the worktree at `BASE`. This must hold no matter how a worktree came
   to exist; it is what catches a harness or tooling regression.
 - **Launch the ready set concurrently** — one worker per step, as ordinary subagents via
-  the **Task/Agent subagent tool** with `model: sonnet` and **no `isolation` option** (a
+  the **Task/Agent subagent tool** with `model: sonnet`, `effort: low` (a `mechanical` step has
+  a clean checkable answer — deep reasoning is wasted on it), and **no `isolation` option** (a
   worker's shell starts in the main repo — the contract's path discipline is what keeps it
   inside its worktree). Hand each worker its worktree's absolute path plus the step's
   `objective`, `context`, `actions`, `files_in_scope`, and this contract:
@@ -290,7 +291,7 @@ Brief amendment protocol), not a revision to the decomposer.
 
 ## Routing & escalation
 
-- `mechanical` → cheap Sonnet worker.
+- `mechanical` → cheap Sonnet worker at `effort: low`.
 - `judgment` → expensive model or human; never a cheap worker.
 - Bound retries (≤2). Revision → retry once more. Still failing → escalate. Never loop
   indefinitely on the same step.
