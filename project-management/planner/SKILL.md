@@ -1,5 +1,6 @@
 ---
 name: planner
+version: 1.0.0
 description: >
   First stage of the planner → decomposer → supervisor pipeline for executing a
   large, complex goal with a fleet of cheap-model worker subagents under

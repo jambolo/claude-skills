@@ -1,0 +1,73 @@
+{
+  "manifestVersion": 1,
+  "updated": "2026-08-21",
+  "installRoot": "~/.claude/skills",
+  "skills": [
+    {
+      "name": "advent-of-code",
+      "version": "1.0.0",
+      "path": "advent-of-code/advent-of-code",
+      "family": "advent-of-code"
+    },
+    {
+      "name": "new-cpp-project",
+      "version": "1.0.0",
+      "path": "new-project/new-cpp-project",
+      "family": "new-project"
+    },
+    {
+      "name": "new-haskell-project",
+      "version": "1.0.0",
+      "path": "new-project/new-haskell-project",
+      "family": "new-project"
+    },
+    {
+      "name": "new-julia-project",
+      "version": "1.0.0",
+      "path": "new-project/new-julia-project",
+      "family": "new-project"
+    },
+    {
+      "name": "new-rust-project",
+      "version": "1.0.0",
+      "path": "new-project/new-rust-project",
+      "family": "new-project"
+    },
+    {
+      "name": "new-tauri-project",
+      "version": "1.0.0",
+      "path": "new-project/new-tauri-project",
+      "family": "new-project"
+    },
+    {
+      "name": "new-typescript-project",
+      "version": "1.0.0",
+      "path": "new-project/new-typescript-project",
+      "family": "new-project"
+    },
+    {
+      "name": "decomposer",
+      "version": "1.0.0",
+      "path": "project-management/decomposer",
+      "family": "project-management"
+    },
+    {
+      "name": "planner",
+      "version": "1.0.0",
+      "path": "project-management/planner",
+      "family": "project-management"
+    },
+    {
+      "name": "supervisor",
+      "version": "1.0.0",
+      "path": "project-management/supervisor",
+      "family": "project-management"
+    },
+    {
+      "name": "skill-version-check",
+      "version": "1.2.1",
+      "path": "skill-management/skill-version-check",
+      "family": "skill-management"
+    }
+  ]
+}

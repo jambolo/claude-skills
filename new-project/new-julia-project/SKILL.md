@@ -1,5 +1,6 @@
 ---
 name: new-julia-project
+version: 1.0.0
 description: Scaffold a new Julia package using PkgTemplates — generates the package directory with Project.toml, git repo, a .gitignore tuned for Julia, MIT license, README, and a GitHub Actions CI workflow that builds, tests, lints, and checks formatting. Also finishes a partially set-up Julia package, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new Julia project or package, or to complete/fill in the setup of an existing one.
 ---
 

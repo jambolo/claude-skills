@@ -1,5 +1,6 @@
 ---
 name: supervisor
+version: 1.0.0
 description: >
   Final stage of the planner → decomposer → supervisor pipeline. Executes a
   decomposed phase: launches one cheap-model (Sonnet) worker subagent per step —

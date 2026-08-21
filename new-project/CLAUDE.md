@@ -4,7 +4,7 @@ Guidance for the `new-*-project` scaffolders. See the repo root `CLAUDE.md` for 
 
 ## The skills
 
-Per-language scaffolders (cpp, haskell, julia, rust, typescript). They also serve as the bootstrap layer for `advent-of-code` scaffolds, so behavior changes here propagate there.
+Per-language scaffolders. They also serve as the bootstrap layer for `advent-of-code` scaffolds, so behavior changes here propagate there.
 
 ## Scaffolder conventions (shared across `new-*`)
 

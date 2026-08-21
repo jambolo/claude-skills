@@ -1,5 +1,6 @@
 ---
 name: advent-of-code
+version: 1.0.0
 description: >
   Manages Advent of Code projects across any language. Use this skill whenever
   the user mentions Advent of Code, AoC, puzzle solutions, or working on a

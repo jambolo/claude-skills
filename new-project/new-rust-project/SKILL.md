@@ -1,5 +1,6 @@
 ---
 name: new-rust-project
+version: 1.0.0
 description: Scaffold a new Rust project with cargo — creates the directory via cargo new, then adds a comprehensive .gitignore, MIT license, README, CI/CD GitHub Actions workflows, and seeded git commits. Also finishes a partially set-up Rust project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new Rust or cargo project, or to complete/fill in the setup of an existing one.
 ---
 

@@ -1,5 +1,6 @@
 ---
 name: decomposer
+version: 1.0.0
 description: >
   Middle stage of the planner → decomposer → supervisor pipeline. Decomposes ONE
   phase of a plan (from the planner's `<plan-name>-brief.md` and

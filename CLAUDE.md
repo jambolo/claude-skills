@@ -18,18 +18,26 @@ The `description` frontmatter is the dispatch trigger — it is the only thing C
 
 Leaf folder name must equal frontmatter `name` (kebab-case). Installation and discovery assume this — the enclosing category folder is not part of the skill name.
 
-## Three skill families
+## Versioning
+
+Every `SKILL.md` carries a semver `version:` line directly under `name:`, and `skills-manifest.json` at the repo root mirrors it for every skill (including `skill-version-check` itself). **The two must always agree** — a mismatch is "manifest drift" and is treated as an error by the `skill-version-check` skill, which compares the manifest against the versions installed under `~/.claude/skills/`.
+
+After changing a skill's content, bump its `version:` (patch = wording, minor = new capability, major = changed operations/inputs/artifact formats) **and** update its manifest entry in the same commit. Editing the `project-management` shared "Shared model" section means bumping all three of `planner`, `decomposer`, `supervisor`.
+
+## Four skill families
 
 Each family has its own `CLAUDE.md` with the detail; it loads when you work under that folder.
 
 - **`advent-of-code/`** — the language-agnostic AoC skill. See `advent-of-code/CLAUDE.md`.
 - **`new-project/`** — the per-language scaffolders, which also bootstrap `advent-of-code` scaffolds. See `new-project/CLAUDE.md`: its **"Scaffolder conventions"** section is the shared contract, and `advent-of-code`'s inline scaffold fallback follows it too.
 - **`project-management/`** — the planner → decomposer → supervisor pipeline. See `project-management/CLAUDE.md`. When editing any of those three skills, the **"Shared model" section is duplicated verbatim across all three SKILL.md files and must be kept in sync**.
+- **`skill-management/`** — repo self-maintenance (`skill-version-check`). See `skill-management/CLAUDE.md`.
 
 ## Validating a change
 
 - End-to-end: copy the skill folder to `~/.claude/skills/<name>/`, invoke it in an empty scratch directory, and inspect the resulting git log + tree.
-- Frontmatter sanity: `name` matches the folder; `description` lists trigger phrases.
+- Frontmatter sanity: `name` matches the folder; `version` is bumped and matches `skills-manifest.json`; `description` lists trigger phrases.
+- Version/manifest state: `pwsh skill-management/skill-version-check/scripts/Compare-SkillVersions.ps1 -RepoRoot .` (or `bash skill-management/skill-version-check/scripts/compare-skill-versions.sh --repo-root .`) — the "Manifest drift" section must be empty.
 
 ## Notes
 

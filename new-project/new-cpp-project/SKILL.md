@@ -1,5 +1,6 @@
 ---
 name: new-cpp-project
+version: 1.0.0
 description: Scaffold a new C++ project using CMake — creates the directory, git repo with seeded commits, MIT license, .gitignore, README, a CMakeLists.txt from a template (executable or library), and a GitHub Actions CI workflow that builds, tests, lints, and checks formatting. Library scaffolds also get a Doxygen docs job deployed to GitHub Pages, a Codecov coverage job, and a CD release workflow. Also finishes a partially set-up C++ project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new C++ or CMake project, set up a C++ executable or library, or complete/fill in the setup of an existing one.
 ---
 
