@@ -1,6 +1,6 @@
 ---
 name: planner
-version: 1.0.0
+version: 1.0.1
 description: >
   First stage of the planner → decomposer → supervisor pipeline for executing a
   large, complex goal with a fleet of cheap-model worker subagents under
@@ -15,7 +15,7 @@ description: >
   steps. Also the sole editor of the brief and roadmap after seeding: invoke this
   skill with an **amendment note** — from the decomposer, the supervisor, or the
   user saying "amend the brief/roadmap" — to correct a defective constraint, fact,
-  or Definition of Done mid-run (Operation B). This skill does high-level planning
+  or Definition of Done mid-run (the amend operation). This skill does high-level planning
   ONLY — it does not break phases into steps (that is `decomposer`) or execute
   them (that is `supervisor`).
 ---
@@ -36,7 +36,7 @@ pipeline runs without re-deriving strategy. You produce three files and stop —
 **not** design steps, touch code, or execute anything. You also stay the sole editor of
 the brief and roadmap for the plan's whole life: when execution surfaces a defect in
 them, the discoverer sends you an **amendment note** and you apply the fix
-(Operation B — amend).
+(the amend operation).
 
 ## Shared model (planner → decomposer → supervisor)
 
@@ -122,7 +122,7 @@ completed steps ran against the old text and stay untouched.
 You own only the first three files; the rest are produced downstream, listed so your brief
 and roadmap carry everything those stages need.
 
-## Operation A — plan a goal
+## Plan operation — plan a goal
 
 ### 1. Orient and clarify
 
@@ -241,7 +241,7 @@ updates Steps and appends Revisions.
 Tell the user the three files are ready and the next move is to invoke the `decomposer`
 on a specific phase (usually phase 1).
 
-## Operation B — amend the brief or roadmap
+## Amend operation — amend the brief or roadmap
 
 Invoked mid-execution with an **amendment note** (see Brief amendment protocol) from the
 decomposer, the supervisor, or the user. You are correcting the plan's source of truth,

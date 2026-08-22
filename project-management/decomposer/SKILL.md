@@ -1,6 +1,6 @@
 ---
 name: decomposer
-version: 1.0.0
+version: 1.0.1
 description: >
   Middle stage of the planner → decomposer → supervisor pipeline. Decomposes ONE
   phase of a plan (from the planner's `<plan-name>-brief.md` and
@@ -224,7 +224,7 @@ Read, in order:
    and commit SHAs). This matters most when revising.
 
 You are given the **phase number**. If a **revision note** is present (from the supervisor
-or the user) → Operation B; otherwise → Operation A.
+or the user) → the revise operation; otherwise → the decompose operation.
 
 If during either operation the brief or roadmap itself proves defective — an
 unsatisfiable constraint, a stale fact, a DoD honest work cannot meet — do not
@@ -232,7 +232,7 @@ compensate in step `context` or ledger notes: write an amendment note and invoke
 `planner` skill via the **Skill tool** (see Brief amendment protocol), then decompose
 from the amended text.
 
-## Operation A — decompose a phase (fresh)
+## Decompose operation — decompose a phase (fresh)
 
 1. From the target phase, enumerate the atomic units of work that together meet the phase
    DoD.
@@ -264,7 +264,7 @@ from the amended text.
    else: the revision loop relies on history for which version of a step a worker actually
    ran against.
 
-## Operation B — revise
+## Revise operation — revise
 
 A revision note means a prior step failed or the plan was wrong — you are **correcting**,
 not starting over.

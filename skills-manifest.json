@@ -1,11 +1,11 @@
 {
   "manifestVersion": 1,
-  "updated": "2026-08-21",
+  "updated": "2026-08-22",
   "installRoot": "~/.claude/skills",
   "skills": [
     {
       "name": "advent-of-code",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "advent-of-code/advent-of-code",
       "family": "advent-of-code"
     },
@@ -53,13 +53,13 @@
     },
     {
       "name": "decomposer",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "project-management/decomposer",
       "family": "project-management"
     },
     {
       "name": "planner",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "path": "project-management/planner",
       "family": "project-management"
     },

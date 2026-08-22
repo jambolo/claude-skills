@@ -1,6 +1,6 @@
 ---
 name: advent-of-code
-version: 1.0.0
+version: 1.0.1
 description: >
   Manages Advent of Code projects across any language. Use this skill whenever
   the user mentions Advent of Code, AoC, puzzle solutions, or working on a
@@ -105,7 +105,7 @@ multiple questions. Example:
 
 ---
 
-## Operation 1 — Init (generate/update CLAUDE.md)
+## Init operation — generate/update CLAUDE.md
 
 CLAUDE.md teaches Claude how to work on *this specific project*. It should be
 at the project root and cover everything a developer (or Claude) needs to
@@ -149,7 +149,7 @@ or command of this repo? It belongs in CLAUDE.md.
 List only the steps specific to this project (what to copy, what to rename,
 what to register in the build config). Omit the generic stub requirements
 (banner, placeholder solvers, empty input files, README section) —
-Operation 3 owns those.
+the stub operation owns those.
 
 **How to build and run a day**
 
@@ -168,7 +168,7 @@ Operation 3 owns those.
 **Answer locations** — only if the project deviates from the contract
 (answers kept somewhere other than the README day tables, or a different
 stdout signal). If the project follows the contract, omit this section
-entirely. Never describe the verify procedure itself — that is Operation 4.
+entirely. Never describe the verify procedure itself — that is the run operation.
 
 **Conventions**
 
@@ -180,7 +180,7 @@ entirely. Never describe the verify procedure itself — that is Operation 4.
 Adapt everything to the actual language. For an existing project, the layout
 and run command are facts to read out of the repo, not choices to make. For a
 brand-new project, they come from the structure research done during scaffold
-(see Operation 2, Phase B) — CLAUDE.md should document the chosen structure
+(see the scaffold operation, Phase B) — CLAUDE.md should document the chosen structure
 *and* cite where it came from, so later sessions don't re-derive or
 second-guess it.
 
@@ -198,7 +198,7 @@ rule above).
 
 ---
 
-## Operation 2 — Scaffold project
+## Scaffold operation — scaffold a project
 
 Create the full initial project structure for a new AoC year. This happens in
 two phases: **bootstrap** (generic repo setup) and **AoC layer** (everything
@@ -262,7 +262,7 @@ step.
    (toolchain config, CI). If community practice conflicts with the contract
    on some point, keep the contract and note the deviation in CLAUDE.md.
 
-   Record in CLAUDE.md (Operation 1) which sources informed the structure and
+   Record in CLAUDE.md (init operation) which sources informed the structure and
    why it was chosen, so later sessions reuse the decision instead of
    re-researching it.
 
@@ -287,15 +287,15 @@ step.
      character grid (`Vec<Vec<char>>` / `list[list[str]]` / etc.),
      integer grid
 
-4. **Stub for day 1** — follow Operation 3 for day 1.
+4. **Stub for day 1** — follow the stub operation for day 1.
 
 5. **CI fix-up** — if the bootstrap skill installed a CI workflow, make sure
    it still passes against the restructured layout (e.g., workspace-wide
    `cargo build`/`cargo test` instead of a single crate). If the language had
    no bootstrap skill, CI is optional — add it only if the user asks.
 
-6. **`CLAUDE.md`** — follow Operation 1. Record the bootstrap skill used
-   (one line, per Operation 1's project identity) so later operations know
+6. **`CLAUDE.md`** — follow the init operation. Record the bootstrap skill used
+   (one line, per the init operation's project identity) so later operations know
    where the repo conventions came from.
 
 ### Goal: working from the start
@@ -305,7 +305,7 @@ print the banner. It doesn't need to solve anything — it just needs to run.
 
 ---
 
-## Operation 3 — Add a day stub
+## Stub operation — add a day stub
 
 Add a new day to an existing project. Orient per Step 0 (read CLAUDE.md
 first), then inspect one or two existing day directories to confirm the
@@ -331,7 +331,7 @@ answer-table format (blank cells).
 
 ---
 
-## Operation 4 — Run and verify
+## Run operation — run and verify
 
 Run a day's solution and compare the output to the answers in README.md.
 Orient per Step 0: the run command, working directory, and any contract
