@@ -46,6 +46,12 @@
       "family": "new-project"
     },
     {
+      "name": "lead-developer",
+      "version": "1.0.0",
+      "path": "project-management/lead-developer",
+      "family": "project-management"
+    },
+    {
       "name": "decomposer",
       "version": "1.0.0",
       "path": "project-management/decomposer",
