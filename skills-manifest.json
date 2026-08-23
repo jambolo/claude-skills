@@ -1,77 +1,97 @@
 {
-  "manifestVersion": 1,
-  "updated": "2026-08-22",
-  "installRoot": "~/.claude/skills",
-  "skills": [
+  "manifestVersion": 2,
+  "updated": "2026-08-23",
+  "skillInstallRoot": "~/.claude/skills",
+  "agentInstallRoot": "~/.claude/agents",
+  "entries": [
     {
       "name": "advent-of-code",
       "version": "1.0.1",
+      "kind": "skill",
       "path": "advent-of-code/advent-of-code",
       "family": "advent-of-code"
     },
     {
       "name": "new-cpp-project",
       "version": "1.0.0",
+      "kind": "skill",
       "path": "new-project/new-cpp-project",
       "family": "new-project"
     },
     {
       "name": "new-haskell-project",
       "version": "1.0.0",
+      "kind": "skill",
       "path": "new-project/new-haskell-project",
       "family": "new-project"
     },
     {
       "name": "new-julia-project",
       "version": "1.0.0",
+      "kind": "skill",
       "path": "new-project/new-julia-project",
       "family": "new-project"
     },
     {
       "name": "new-rust-project",
       "version": "1.0.0",
+      "kind": "skill",
       "path": "new-project/new-rust-project",
       "family": "new-project"
     },
     {
       "name": "new-tauri-project",
       "version": "1.0.0",
+      "kind": "skill",
       "path": "new-project/new-tauri-project",
       "family": "new-project"
     },
     {
       "name": "new-typescript-project",
       "version": "1.0.0",
+      "kind": "skill",
       "path": "new-project/new-typescript-project",
       "family": "new-project"
     },
     {
       "name": "lead-developer",
-      "version": "1.0.0",
+      "version": "2.0.0",
+      "kind": "skill",
       "path": "project-management/lead-developer",
       "family": "project-management"
     },
     {
       "name": "decomposer",
-      "version": "1.0.1",
+      "version": "2.0.0",
+      "kind": "agent",
       "path": "project-management/decomposer",
       "family": "project-management"
     },
     {
       "name": "planner",
-      "version": "1.0.1",
+      "version": "2.0.0",
+      "kind": "agent",
       "path": "project-management/planner",
       "family": "project-management"
     },
     {
       "name": "supervisor",
-      "version": "1.1.0",
+      "version": "2.0.0",
+      "kind": "agent",
       "path": "project-management/supervisor",
       "family": "project-management"
     },
     {
+      "name": "worker",
+      "version": "1.0.0",
+      "kind": "agent",
+      "path": "project-management/worker",
+      "family": "project-management"
+    },
+    {
       "name": "skill-version-check",
-      "version": "1.2.1",
+      "version": "2.0.0",
+      "kind": "skill",
       "path": "skill-management/skill-version-check",
       "family": "skill-management"
     }

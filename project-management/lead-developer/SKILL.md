@@ -1,20 +1,21 @@
 ---
 name: lead-developer
-version: 1.0.0
+version: 2.0.0
 description: >
   Top stage of the project-management family, sitting above the planner →
   decomposer → supervisor pipeline. Performs the role of a lead developer: turns a
   project synopsis into a milestone-based `<project-name>-project-plan.md` by
   interviewing the user (the plan operation), then executes the project milestone by
   milestone (the execute operation), driving the `planner`, `decomposer`, and
-  `supervisor` skills in isolated subagent contexts, evaluating each finished
-  milestone against its Definition of Done, and squash-merging each milestone branch
-  into `develop`. Use when the user says things like "act as lead developer", "plan
-  this project", "create a project plan", "execute the project plan", "run the
-  project", "do the next milestone", or brings a whole-project goal too large for a
-  single planner run. For a single bounded goal, use `planner` directly; this skill
-  does not itself write briefs (that is `planner`), steps (that is `decomposer`), or
-  code (that is `supervisor`'s workers).
+  `supervisor` agents as isolated subagents (with the `worker` agent beneath the
+  supervisor), evaluating each finished milestone against its Definition of Done, and
+  squash-merging each milestone branch into `develop`. Use when the user says things
+  like "act as lead developer", "plan this project", "create a project plan", "execute
+  the project plan", "run the project", "do the next milestone", or brings a
+  whole-project goal too large for a single planner run. For a single bounded goal,
+  invoke the `planner` agent directly; this skill does not itself write briefs (that
+  is `planner`), steps (that is `decomposer`), or code (that is `supervisor`'s
+  workers).
 ---
 
 # Lead Developer
@@ -40,7 +41,7 @@ Two operations:
 - **Plan**: interview the user, produce `<project-name>-project-plan.md`
   and `<project-name>-project-ledger.md`.
 - **Execute**: for each pending milestone, run plan → implement → evaluate →
-  merge via the pipeline skills.
+  merge via the pipeline agents.
 
 ## Project model
 
@@ -50,7 +51,7 @@ Two operations:
 | --- | --- | --- |
 | `<project-name>-project-plan.md` | lead-developer (plan operation only; immutable during execution) | lead-developer |
 | `<project-name>-project-ledger.md` | lead-developer | lead-developer |
-| `<project-name>-m<n>-*.md` | pipeline skills (per milestone, keyed by plan-name `<project-name>-m<n>`) | pipeline skills |
+| `<project-name>-m<n>-*.md` | pipeline agents (per milestone, keyed by plan-name `<project-name>-m<n>`) | pipeline agents |
 
 **Branch topology**
 
@@ -62,30 +63,39 @@ Two operations:
 - The pipeline's `working-branch` for milestone `n` is `milestone/<n>-<slug>`; its
   plan-name is `<project-name>-m<n>`.
 
-**Context isolation.** The pipeline skills are designed to run in isolation and
-communicate through files. Every pipeline invocation therefore runs in a **fresh
-subagent** (Task/Agent tool, `general-purpose` or equivalent full-tool type, foreground —
-never in your own context):
+**Context isolation.** The pipeline stages are **agent definitions** installed under
+`~/.claude/agents/` — `planner`, `decomposer`, `supervisor`, and the supervisor's
+`worker` — designed to run in isolation and communicate through files. Every pipeline
+invocation therefore runs as a **fresh subagent** via the Agent tool, foreground, never in
+your own context:
 
-| Invocation | model | effort |
+| Invocation | `subagent_type` | model / effort (pinned in the agent definition) |
 | --- | --- | --- |
-| planner (plan a milestone; amendments) | fable | max |
-| decomposer (decompose a phase) | fable | max |
-| supervisor (supervise a phase) | opus | high |
+| plan a milestone; amendments | `planner` | fable / max |
+| decompose a phase | `decomposer` | fable / max |
+| supervise a phase | `supervisor` | opus / high |
 
-The subagent's prompt instructs it to invoke the named skill via the **Skill tool** and
-hands it only: `plan-name`, `artifacts-dir`, working branch, the operation's inputs
-(milestone goal text, or phase number), and the return protocol below. The pipeline
-skills must be installed (`~/.claude/skills/`); if a subagent reports the skill missing,
-stop and tell the user.
+Pass **no** `model`, `effort`, or `isolation` option — the definition pins model and
+effort, and `isolation: "worktree"` would base the agent on `origin/HEAD` instead of the
+milestone branch. The prompt hands the agent only: `plan-name`, `artifacts-dir`, working
+branch, and the operation's inputs (milestone goal text, or phase number); the agents
+carry their own return protocol. If the Agent tool reports an unknown `subagent_type`,
+the agents are not installed — stop and tell the user (the `skill-version-check` skill
+installs them).
 
-**Subagent return protocol.** Every subagent ends its report with exactly one of:
+Depth budget: you run inline at depth 0, so supervisor → decomposer/planner → (nothing)
+fits the harness's three-level subagent limit. Never invoke this skill from inside a
+subagent.
+
+**Agent return protocol.** Every pipeline agent ends its final message with exactly one
+of:
 
 - `RESULT: done` — plus a one-paragraph summary.
 - `RESULT: needs-human` — plus the question(s) or escalation verbatim. The pipeline
-  skills escalate to a human for underspecified goals, `judgment` steps, repeated
-  failures, and gate-weakening amendments; a subagent cannot reach the user, so it must
-  NOT invent answers — it stops and returns this.
+  agents escalate to a human for underspecified goals, `judgment` steps, repeated
+  failures, and gate-weakening amendments; an agent cannot reach the user, so it must
+  NOT invent answers — it stops and returns this (a nested agent's `needs-human` arrives
+  forwarded verbatim through its caller).
 - `RESULT: failed` — plus what broke.
 
 On `needs-human` for a clarification you can relay: put the questions to the user
@@ -94,7 +104,7 @@ other `needs-human` or on `failed`: stop entirely, report state to the user, and
 this is the human-intervention policy, and it applies at every level. Never proceed past
 it.
 
-A subagent's `done` is a lead, not proof — after each invocation, verify ground truth:
+An agent's `done` is a lead, not proof — after each invocation, verify ground truth:
 the expected artifacts exist, the expected commits are on the milestone branch
 (`git log`), and the milestone ledger's state advanced.
 
@@ -121,7 +131,7 @@ State all three to the user.
 ### 3. Write the project plan
 
 `<project-name>-project-plan.md`. It is read by you alone (you project milestone
-sections into planner subagent prompts), so write it machine-dense: structured over
+sections into planner prompts), so write it machine-dense: structured over
 prose, exact names and paths, no narrative. Milestones carry everything the planner
 needs to write a brief and roadmap — and NO implementation detail (phases, steps, file
 lists): that is the planner's job.
@@ -157,7 +167,7 @@ lists): that is the planner's job.
 - planner-context: |
     <the slice of Architecture/Techniques/Constraints this milestone's planner
     needs, plus any milestone-specific facts — self-contained; the planner
-    subagent sees this section, not the whole plan>
+    agent sees this section, not the whole plan>
 ```
 
 Each milestone must be independently plannable from its own section: sized so the
@@ -211,8 +221,8 @@ time.
 ledger (commit that on `develop` first, before branching, so state survives the branch
 dance). Set plan-name `<project-name>-m<n>`.
 
-**1. Plan.** Spawn a **planner subagent** (fable / max). Prompt contains: the
-milestone's full section from the project plan (its `planner-context` is the goal's
+**1. Plan.** Spawn the **`planner` agent** (`subagent_type: planner`). Prompt contains:
+the milestone's full section from the project plan (its `planner-context` is the goal's
 context), plan-name, artifacts-dir, and the instruction that the working branch is
 `milestone/<n>-<slug>` (already checked out — use it, create nothing). The planner
 produces and commits brief + roadmap + milestone ledger on the milestone branch.
@@ -220,21 +230,22 @@ Verify: the three `<project-name>-m<n>-*.md` artifacts exist and are committed.
 
 **2. Implement.** Read the roadmap's phases. For each phase `k` in order:
 
-  1. Spawn a **decomposer subagent** (fable / max): "decompose phase `k` of
-     `<project-name>-m<n>`". Verify the step files and ledger step registry landed.
-  2. Spawn a **supervisor subagent** (opus / high): "supervise phase `k` of
-     `<project-name>-m<n>`". The supervisor runs its own Sonnet workers, verifies,
-     merges, and drives revisions internally — do not re-do its job. Verify the
-     milestone ledger marks phase `k` complete and the phase's commits are on the
+  1. Spawn the **`decomposer` agent** (`subagent_type: decomposer`): "decompose phase
+     `k` of `<project-name>-m<n>`". Verify the step files and ledger step registry
+     landed.
+  2. Spawn the **`supervisor` agent** (`subagent_type: supervisor`): "supervise phase
+     `k` of `<project-name>-m<n>`". The supervisor runs its own `worker` agents,
+     verifies, merges, and drives revisions internally — do not re-do its job. Verify
+     the milestone ledger marks phase `k` complete and the phase's commits are on the
      milestone branch.
   3. Append a project-ledger Events row (`phase k done`). The project ledger lives on
      `develop`, which is not checked out — keep these events in memory and write them
      at the Merge step; the milestone ledger on the branch carries the durable state
      meanwhile.
 
-  Any subagent `needs-human`/`failed` → stop per the return protocol. A revision or
-  amendment the pipeline handles internally is not an escalation — only what a
-  subagent could not resolve reaches you.
+  Any agent `needs-human`/`failed` → stop per the return protocol. A revision or
+  amendment the pipeline handles internally is not an escalation — only what an
+  agent could not resolve reaches you.
 
 **3. Evaluate.** The supervisor verified steps and phase DoDs; you verify the
 **milestone**: run every check in the milestone's `definition-of-done` yourself, on the
@@ -268,13 +279,14 @@ report it and wait; adding milestones is a new plan-operation conversation.
 - **Stay at project altitude.** Naming phases, steps, or files to edit means you have
   dropped into the planner's or decomposer's job. Milestones carry goals and DoDs, not
   designs.
-- **One pipeline invocation, one fresh subagent** — never run planner/decomposer/
-  supervisor in your own context; your context must stay small enough to drive many
-  milestones.
-- **Never invent answers to a subagent's questions.** `needs-human` clarifications go
+- **One pipeline invocation, one fresh agent** — always `subagent_type: planner` /
+  `decomposer` / `supervisor`, never a general-purpose subagent told to "act as" one,
+  and never the work in your own context; your context must stay small enough to drive
+  many milestones.
+- **Never invent answers to an agent's questions.** `needs-human` clarifications go
   to the user verbatim; everything else stops the run. Human intervention is a stop,
   not a speed bump.
-- **A subagent's `done` is a lead, not proof** — verify artifacts, commits, and ledger
+- **An agent's `done` is a lead, not proof** — verify artifacts, commits, and ledger
   state after every invocation.
 - **`develop` must pre-exist and be clean** — never create it, never merge with a
   dirty tree, never squash-merge onto a `develop` that moved since branching.

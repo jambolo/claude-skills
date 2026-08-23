@@ -1,28 +1,38 @@
 <#
 .SYNOPSIS
-Compares the skill versions recorded in this repo's skills-manifest.json against
-the versions of the same skills installed under the user's Claude skills root.
+Compares the versions recorded in this repo's skills-manifest.json against the
+versions of the same skills and agents installed under the user's Claude config.
 
 .DESCRIPTION
 Emits one row per manifest entry with the manifest version, the version actually
-declared in the repo's SKILL.md, the version installed locally, and a status:
+declared in the repo's SKILL.md / AGENT.md, the version installed locally, and a
+status:
 
   OK          local version equals the manifest version
   OUTDATED    local version is older than the manifest version
   AHEAD       local version is newer than the manifest version
-  MISSING     no skill folder installed at <InstallRoot>\<name>
-  UNVERSIONED installed SKILL.md has no version: field in its frontmatter
+  MISSING     nothing installed at the entry's install path
+  UNVERSIONED installed file has no version: field in its frontmatter
   DIFFERENT   versions differ but are not comparable as System.Version
 
-Also reports manifest drift (manifest version != repo SKILL.md version) and
-installed skills that the manifest does not know about.
+Every manifest entry declares a `kind`; there is no default, and an entry with a
+missing or unrecognized kind is an error. The kind selects the layout:
+
+  skill  repo <path>\SKILL.md   -> <SkillInstallRoot>\<name>\SKILL.md
+  agent  repo <path>\AGENT.md   -> <AgentInstallRoot>\<name>.md
+
+Also reports manifest drift (manifest version != repo frontmatter version) and
+installed skills/agents that the manifest does not know about.
 
 .PARAMETER RepoRoot
 Root of the claude-skills repo (the folder holding skills-manifest.json).
 Defaults to the nearest ancestor of the current directory containing one.
 
-.PARAMETER InstallRoot
+.PARAMETER SkillInstallRoot
 Claude skills install root. Defaults to $env:USERPROFILE\.claude\skills.
+
+.PARAMETER AgentInstallRoot
+Claude agents install root. Defaults to $env:USERPROFILE\.claude\agents.
 
 .PARAMETER Json
 Emit a JSON report on stdout instead of formatted tables.
@@ -30,7 +40,8 @@ Emit a JSON report on stdout instead of formatted tables.
 [CmdletBinding()]
 param(
     [string]$RepoRoot,
-    [string]$InstallRoot = (Join-Path $env:USERPROFILE '.claude\skills'),
+    [string]$SkillInstallRoot = (Join-Path $env:USERPROFILE '.claude\skills'),
+    [string]$AgentInstallRoot = (Join-Path $env:USERPROFILE '.claude\agents'),
     [switch]$Json
 )
 
@@ -77,10 +88,26 @@ $manifestPath = Join-Path $RepoRoot 'skills-manifest.json'
 if (-not (Test-Path -LiteralPath $manifestPath)) { throw "Manifest not found: $manifestPath" }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 
-$rows = foreach ($s in $manifest.skills) {
-    $repoMd  = Join-Path $RepoRoot (Join-Path $s.path 'SKILL.md')
-    $localDir = Join-Path $InstallRoot $s.name
-    $localMd = Join-Path $localDir 'SKILL.md'
+$entries = @($manifest.entries)
+if ($entries.Count -eq 0) { throw "No entries found in $manifestPath (manifestVersion 2 expects an 'entries' array)." }
+
+$rows = foreach ($e in $entries) {
+    $kind = if ($e.PSObject.Properties['kind']) { [string]$e.kind } else { '' }
+    switch ($kind) {
+        'skill' {
+            $repoMd    = Join-Path $RepoRoot (Join-Path $e.path 'SKILL.md')
+            $localPath = Join-Path $SkillInstallRoot $e.name
+            $localMd   = Join-Path $localPath 'SKILL.md'
+        }
+        'agent' {
+            $repoMd    = Join-Path $RepoRoot (Join-Path $e.path 'AGENT.md')
+            $localMd   = Join-Path $AgentInstallRoot "$($e.name).md"
+            $localPath = $localMd
+        }
+        default {
+            throw "Manifest entry '$($e.name)' has kind '$kind'; every entry must declare kind as 'skill' or 'agent'."
+        }
+    }
 
     $repoVersion  = Get-FrontmatterField -Path $repoMd  -Field 'version'
     $localVersion = Get-FrontmatterField -Path $localMd -Field 'version'
@@ -88,29 +115,44 @@ $rows = foreach ($s in $manifest.skills) {
     $status =
         if (-not (Test-Path -LiteralPath $localMd)) { 'MISSING' }
         elseif (-not $localVersion) { 'UNVERSIONED' }
-        else { Compare-Version -Local $localVersion -Manifest $s.version }
+        else { Compare-Version -Local $localVersion -Manifest $e.version }
 
     [pscustomobject]@{
-        Skill      = $s.name
-        Manifest   = $s.version
+        Name       = $e.name
+        Kind       = $kind
+        Manifest   = $e.version
         Repo       = if ($repoVersion) { $repoVersion } else { '(none)' }
         Local      = if ($localVersion) { $localVersion } else { '(none)' }
         Status     = $status
-        Drift      = ($repoVersion -ne $s.version)
+        Drift      = ($repoVersion -ne $e.version)
         RepoPath   = (Split-Path -Parent $repoMd)
-        LocalPath  = $localDir
+        LocalPath  = $localPath
     }
 }
 
-$known = $manifest.skills.name
+$knownSkills = @($rows | Where-Object { $_.Kind -eq 'skill' } | ForEach-Object { $_.Name })
+$knownAgents = @($rows | Where-Object { $_.Kind -eq 'agent' } | ForEach-Object { $_.Name })
 $orphans = @()
-if (Test-Path -LiteralPath $InstallRoot) {
-    $orphans = @(Get-ChildItem -LiteralPath $InstallRoot -Directory |
-        Where-Object { $known -notcontains $_.Name } |
+if (Test-Path -LiteralPath $SkillInstallRoot) {
+    $orphans += @(Get-ChildItem -LiteralPath $SkillInstallRoot -Directory |
+        Where-Object { $knownSkills -notcontains $_.Name } |
         ForEach-Object {
             [pscustomobject]@{
-                Skill   = $_.Name
+                Name    = $_.Name
+                Kind    = if ($knownAgents -contains $_.Name) { 'skill (superseded by agent)' } else { 'skill' }
                 Local   = (Get-FrontmatterField -Path (Join-Path $_.FullName 'SKILL.md') -Field 'version')
+                Path    = $_.FullName
+            }
+        })
+}
+if (Test-Path -LiteralPath $AgentInstallRoot) {
+    $orphans += @(Get-ChildItem -LiteralPath $AgentInstallRoot -File -Filter '*.md' |
+        Where-Object { $knownAgents -notcontains $_.BaseName } |
+        ForEach-Object {
+            [pscustomobject]@{
+                Name    = $_.BaseName
+                Kind    = if ($knownSkills -contains $_.BaseName) { 'agent (superseded by skill)' } else { 'agent' }
+                Local   = (Get-FrontmatterField -Path $_.FullName -Field 'version')
                 Path    = $_.FullName
             }
         })
@@ -118,28 +160,30 @@ if (Test-Path -LiteralPath $InstallRoot) {
 
 if ($Json) {
     [pscustomobject]@{
-        repoRoot    = $RepoRoot
-        installRoot = $InstallRoot
-        skills      = $rows
-        orphans     = $orphans
+        repoRoot         = $RepoRoot
+        skillInstallRoot = $SkillInstallRoot
+        agentInstallRoot = $AgentInstallRoot
+        entries          = $rows
+        orphans          = $orphans
     } | ConvertTo-Json -Depth 5
     return
 }
 
 Write-Output "Repo:    $RepoRoot"
-Write-Output "Install: $InstallRoot"
+Write-Output "Skills:  $SkillInstallRoot"
+Write-Output "Agents:  $AgentInstallRoot"
 Write-Output ''
-$rows | Format-Table Skill, Manifest, Repo, Local, Status -AutoSize | Out-String -Width 200 | Write-Output
+$rows | Format-Table Name, Kind, Manifest, Repo, Local, Status -AutoSize | Out-String -Width 200 | Write-Output
 
 $drifted = @($rows | Where-Object { $_.Drift })
 if ($drifted.Count -gt 0) {
-    Write-Output 'Manifest drift (manifest version != repo SKILL.md version):'
-    $drifted | Format-Table Skill, Manifest, Repo -AutoSize | Out-String -Width 200 | Write-Output
+    Write-Output 'Manifest drift (manifest version != repo SKILL.md/AGENT.md version):'
+    $drifted | Format-Table Name, Kind, Manifest, Repo -AutoSize | Out-String -Width 200 | Write-Output
 }
 
 if ($orphans.Count -gt 0) {
     Write-Output 'Installed but not in manifest:'
-    $orphans | Format-Table Skill, Local, Path -AutoSize | Out-String -Width 200 | Write-Output
+    $orphans | Format-Table Name, Kind, Local, Path -AutoSize | Out-String -Width 200 | Write-Output
 }
 
 $counts = $rows | Group-Object Status | ForEach-Object { "$($_.Name)=$($_.Count)" }
