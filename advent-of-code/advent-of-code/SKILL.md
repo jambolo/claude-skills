@@ -1,6 +1,6 @@
 ---
 name: advent-of-code
-version: 1.0.1
+version: 1.1.0
 description: >
   Manages Advent of Code projects across any language. Use this skill whenever
   the user mentions Advent of Code, AoC, puzzle solutions, or working on a
@@ -51,6 +51,11 @@ of restating it, and generated CLAUDE.md files document only how the project
   (read `example.txt` instead of `input.txt`).
 - **Output** — each run prints the banner `=== Day <N>, part <P> ===` and
   emits its answer as the last line of stdout in the form `Answer: <value>`.
+- **Inputs** — every day directory holds `input.txt` (the real puzzle input)
+  and `example.txt` (the sample from the puzzle text). Advent of Code asks
+  that puzzle inputs not be republished: for a public repo, gitignore
+  `input.txt` and record that in CLAUDE.md; for a private one, committing it
+  is fine. Decide this once, at scaffold, and ask if the user hasn't said.
 - **Answers** — README.md contains one section per day:
 
   ```markdown
@@ -115,9 +120,13 @@ CLAUDE.md records **project facts** — commands, paths, types, APIs,
 conventions. It must not restate **operation procedure** (how to stub, run,
 verify) or **contract semantics** (flag meanings, banner and answer formats,
 the days-independent rule) — those live in this skill and would drift in
-per-repo copies. Two-sided test: would the sentence be identical in every
-AoC project? It belongs in this skill. Does it mention a tool, file, type,
-or command of this repo? It belongs in CLAUDE.md.
+per-repo copies.
+
+One test per sentence: does it name a tool, file, path, type, or command of
+*this* repo? If not, it is contract or procedure — leave it out. If it does,
+keep it, but write only the repo-specific half: `aoc::banner()` prints the
+banner, days register in workspace `Cargo.toml` — never what the banner must
+contain or why days stay independent.
 
 ### What to include
 
@@ -154,8 +163,7 @@ the stub operation owns those.
 **How to build and run a day**
 
 - Exact shell commands from the project root, including how the contract
-  flags are passed (e.g., after `--` for cargo/cabal) — the realization is
-  project-specific even though the flag semantics are contract
+  flags are passed (e.g., after `--` for cargo/cabal)
 - Any deviations from the contract's flag/banner/answer-output behavior; if
   the project follows the contract exactly, say nothing about those
 
@@ -172,7 +180,8 @@ entirely. Never describe the verify procedure itself — that is the run operati
 
 **Conventions**
 
-- Where puzzle input files live (e.g., `day01/input.txt`, `day01/example.txt`)
+- Where puzzle input files live (e.g., `day01/input.txt`, `day01/example.txt`),
+  and whether `input.txt` is committed or gitignored
 - File naming, function/struct naming patterns
 
 ### Language-specific guidance
@@ -211,7 +220,10 @@ Check whether a `new-<language>-project` skill exists for the project's
 language. If it does, **invoke it via the Skill tool** — do not replicate its
 steps by hand. It produces the git repo with seeded commits, .gitignore, MIT
 license, starter README, build config, and (where the skill provides one) a
-CI workflow.
+CI workflow. Pass that language's **Notes** cell from the table below to the
+skill via the Skill tool's `args` parameter — the bootstrap skill loads into
+this same context, so its own defaults will otherwise win over the AoC-specific
+overrides.
 
 | Language | Bootstrap skill | Notes for the delegated run |
 | --- | --- | --- |
@@ -262,9 +274,9 @@ step.
    (toolchain config, CI). If community practice conflicts with the contract
    on some point, keep the contract and note the deviation in CLAUDE.md.
 
-   Record in CLAUDE.md (init operation) which sources informed the structure and
-   why it was chosen, so later sessions reuse the decision instead of
-   re-researching it.
+   Carry the sources and the reason for the choice forward to step 6, where
+   CLAUDE.md is written — don't create CLAUDE.md early. Recording them there
+   is what stops later sessions re-researching or second-guessing the layout.
 
 2. **Rewrite `README.md`** (overwriting the bootstrap placeholder), then
    commit:
@@ -311,7 +323,9 @@ Add a new day to an existing project. Orient per Step 0 (read CLAUDE.md
 first), then inspect one or two existing day directories to confirm the
 exact code patterns in use. The stub
 must be indistinguishable in style from the existing days — a newcomer to the
-project should not be able to tell which day was added by Claude.
+project should not be able to tell which day was added by Claude. Invoked
+from scaffold there are no existing days yet; the researched structure and
+the common library's API are the precedent instead.
 
 The stub should:
 
@@ -329,19 +343,34 @@ The stub should:
 Add the corresponding `## Day <N>` section to README.md, in the contract's
 answer-table format (blank cells).
 
+Commit the stub — code, input files, build wiring, and README section — as
+one commit. Invoked from scaffold, that commit is Phase B's step 4.
+
 ---
 
 ## Run operation — run and verify
 
 Run a day's solution and compare the output to the answers in README.md.
-Orient per Step 0: the run command, working directory, and any contract
-deviations come from CLAUDE.md — or, failing that, from the build files and
-existing day code. Where CLAUDE.md is silent, the contract formats apply.
+Orient per Step 0. Where CLAUDE.md is silent, the contract formats apply.
+
+**Example runs are not verified.** If the request is for the example input,
+run with `--example`, report the banner and answer, and stop — skip steps 2,
+5, and 6 entirely. README answer tables track real-input answers only, so
+there is no expected value to compare against, no ✓/✗ verdict to give, and an
+example answer must never be written into a day's answer table.
+
+**A single-part request runs only that part.** If the user names one part
+("run day 3 part 2"), pass `--part <N>`, run only that part, and report only
+that row — steps 2 and 6 apply to that part alone. A request naming no day
+("check my answers") runs every day whose `input.txt` is non-empty, one
+table per day.
 
 ### Steps
 
 1. **Read CLAUDE.md** — extract the run command template and any contract
-   deviations.
+   deviations. If neither CLAUDE.md nor the build files and existing day code
+   yield a run command, ask the user for it, then offer to record it in
+   CLAUDE.md via the init operation.
 
 2. **Read README.md** — parse the requested day's answer table (contract
    format); extract the expected answers for parts 1 and 2 (a blank cell
@@ -352,6 +381,14 @@ existing day code. Where CLAUDE.md is silent, the contract formats apply.
 
 4. **Run part 2**, same approach.
 
+**A failed run is not a wrong answer.** If a run exits non-zero, prints no
+`Answer:` line, or has to be killed for running too long, stop processing that
+part: report the exit code with stdout and stderr, leave its `Got` cell as `—`,
+and do not reach step 6 for it. Name the failure — build error, runtime panic,
+or missing puzzle input — since the fix differs; an empty `input.txt` (or
+`example.txt` on an `--example` run) is the most common cause, because stub
+days ship both empty.
+
 5. **Report results** in a compact table:
 
    | Part | Expected | Got | ✓/✗ |
@@ -360,12 +397,14 @@ existing day code. Where CLAUDE.md is silent, the contract formats apply.
    | 2 | 67890 | 67890 | ✓ |
 
 6. If an expected answer is blank (not yet in README.md), report the output
-   and ask whether to write it to README.md.
+   and ask whether to write it to README.md; on yes, fill the cell and commit.
+   Before offering, verify the
+   answer is real: the part's solver must contain actual logic rather than the
+   stub's placeholder return, and `input.txt` must be non-empty. Judge by
+   solver source and input file, never by the value — `0` is a legitimate
+   answer from a real solver.
 
 7. If the output doesn't match, show the full stdout to help debug.
-
-If the user asks for the example run or a single part, pass the contract
-flags (`--example`, `--part <N>`) accordingly.
 
 ---
 
