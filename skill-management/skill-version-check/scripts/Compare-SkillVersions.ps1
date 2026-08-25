@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Compares the versions recorded in this repo's skills-manifest.json against the
+Compares the versions recorded in this repo's manifest.json against the
 versions of the same skills and agents installed under the user's Claude config.
 
 .DESCRIPTION
@@ -25,7 +25,7 @@ Also reports manifest drift (manifest version != repo frontmatter version) and
 installed skills/agents that the manifest does not know about.
 
 .PARAMETER RepoRoot
-Root of the claude-skills repo (the folder holding skills-manifest.json).
+Root of the claude-skills repo (the folder holding manifest.json).
 Defaults to the nearest ancestor of the current directory containing one.
 
 .PARAMETER SkillInstallRoot
@@ -51,7 +51,7 @@ function Resolve-RepoRoot {
     param([string]$Start)
     $dir = Get-Item -LiteralPath $Start
     while ($null -ne $dir) {
-        if (Test-Path -LiteralPath (Join-Path $dir.FullName 'skills-manifest.json')) { return $dir.FullName }
+        if (Test-Path -LiteralPath (Join-Path $dir.FullName 'manifest.json')) { return $dir.FullName }
         $dir = $dir.Parent
     }
     return $null
@@ -82,9 +82,9 @@ function Compare-Version {
 }
 
 if (-not $RepoRoot) { $RepoRoot = Resolve-RepoRoot -Start (Get-Location).Path }
-if (-not $RepoRoot) { throw 'skills-manifest.json not found. Pass -RepoRoot <path to claude-skills repo>.' }
+if (-not $RepoRoot) { throw 'manifest.json not found. Pass -RepoRoot <path to claude-skills repo>.' }
 
-$manifestPath = Join-Path $RepoRoot 'skills-manifest.json'
+$manifestPath = Join-Path $RepoRoot 'manifest.json'
 if (-not (Test-Path -LiteralPath $manifestPath)) { throw "Manifest not found: $manifestPath" }
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 

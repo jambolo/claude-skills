@@ -1,62 +1,60 @@
 #!/usr/bin/env bash
-# Compares the versions recorded in this repo's manifest.json against
-# the versions of the same skills and agents installed under the user's Claude
-# config. POSIX/Linux counterpart of Compare-SkillVersions.ps1.
+# Compares the versions recorded in a scripts repo's manifest.json
+# against the versions of the same bash scripts installed in the user's ~/bin.
+# POSIX/Linux counterpart of Compare-ScriptVersions.ps1.
 #
 # Emits one row per manifest entry with the manifest version, the version
-# declared in the repo's SKILL.md / AGENT.md, the version installed locally,
-# and a status:
+# declared in the repo copy's `# version:` header, the version in the installed
+# copy's header, and a status:
 #
 #   OK          local version equals the manifest version
 #   OUTDATED    local version is older than the manifest version
 #   AHEAD       local version is newer than the manifest version
 #   MISSING     nothing installed at the entry's install path
-#   UNVERSIONED installed file has no version: field in its frontmatter
+#   UNVERSIONED installed file has no `# version:` header comment
 #   DIFFERENT   versions differ but are not comparable as Major.Minor[.Build[.Revision]]
 #
-# Every manifest entry declares a `kind`; there is no default, and an entry
-# with a missing or unrecognized kind is an error. The kind selects the layout:
+# Every manifest entry declares `kind: script`; there is no default and no
+# other kind, and an entry with a missing or different kind is an error. The
+# layout is:
 #
-#   skill  repo <path>/SKILL.md  -> <skill-install-root>/<name>/SKILL.md
-#   agent  repo <path>/AGENT.md  -> <agent-install-root>/<name>.md
+#   script  repo <path>  -> <install-root>/<name>
 #
-# Also reports manifest drift (manifest version != repo frontmatter version)
-# and installed skills/agents the manifest does not know about.
+# A script's version is the first line matching `# version: <value>`
+# (case-insensitive `version`) within the first 15 lines of the file.
+#
+# Also reports manifest drift (manifest version != repo header version). The
+# install root is not owned by the repo, so unlike compare-skill-versions.sh
+# there is no "installed but not in manifest" section.
 #
 # Usage:
-#   compare-skill-versions.sh [--repo-root <path>] [--skill-install-root <path>]
-#                             [--agent-install-root <path>] [--json]
+#   compare-script-versions.sh [--repo-root <path>] [--install-root <path>] [--json]
 #
-#   --repo-root           Root of the claude-skills repo (the folder holding
-#                         manifest.json). Defaults to the nearest
-#                         ancestor of the current directory containing one.
-#   --skill-install-root  Claude skills install root. Defaults to
-#                         $HOME/.claude/skills.
-#   --agent-install-root  Claude agents install root. Defaults to
-#                         $HOME/.claude/agents.
-#   --json                Emit a JSON report on stdout instead of formatted tables.
+#   --repo-root     Root of the scripts repo (the folder holding
+#                   manifest.json). Defaults to the nearest ancestor of
+#                   the current directory containing one.
+#   --install-root  Script install root. Defaults to $HOME/bin.
+#   --json          Emit a JSON report on stdout instead of formatted tables.
 
 set -euo pipefail
 
 repo_root=""
-skill_install_root="${HOME}/.claude/skills"
-agent_install_root="${HOME}/.claude/agents"
+install_root="${HOME}/bin"
 json=0
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 
 usage() {
-    sed -n '2,37p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --repo-root)          [ $# -ge 2 ] || die "--repo-root needs a value"; repo_root="$2"; shift 2 ;;
-        --skill-install-root) [ $# -ge 2 ] || die "--skill-install-root needs a value"; skill_install_root="$2"; shift 2 ;;
-        --agent-install-root) [ $# -ge 2 ] || die "--agent-install-root needs a value"; agent_install_root="$2"; shift 2 ;;
-        --json)               json=1; shift ;;
-        -h|--help)            usage; exit 0 ;;
-        *)                    die "Unknown argument: $1" ;;
+        --repo-root)    [ $# -ge 2 ] || die "--repo-root needs a value"; repo_root="$2"; shift 2 ;;
+        --install-root) [ $# -ge 2 ] || die "--install-root needs a value"; install_root="$2"; shift 2 ;;
+        --json)         json=1; shift ;;
+        -h|--help)      usage; exit 0 ;;
+        *)              die "Unknown argument: $1" ;;
     esac
 done
 
@@ -70,25 +68,21 @@ resolve_repo_root() {
     done
 }
 
-# Reads a scalar frontmatter field from a SKILL.md / AGENT.md. Prints nothing
-# when the file is absent, has no leading `---` fence, or lacks the field.
-frontmatter_field() {
-    local path="$1" field="$2"
+# Reads a script's `# version:` header. Prints nothing when the file is absent
+# or no matching comment appears in the first 15 lines.
+header_version() {
+    local path="$1"
     [ -f "$path" ] || return 0
-    awk -v field="$field" '
-        NR == 1 { if ($0 !~ /^[[:space:]]*---[[:space:]]*\r?$/) exit; next }
-        /^[[:space:]]*---[[:space:]]*\r?$/ { exit }
+    awk '
+        NR > 15 { exit }
         {
             line = $0
             sub(/\r$/, "", line)
-            if (index(line, field ":") != 1) next
-            value = substr(line, length(field) + 2)
-            sub(/^[[:space:]]+/, "", value)
-            sub(/#.*$/, "", value)
-            sub(/[[:space:]]+$/, "", value)
-            if (value ~ /^".*"$/) value = substr(value, 2, length(value) - 2)
-            if (value == "") next
-            print value
+            if (line !~ /^#[[:space:]]*[Vv]ersion:/) next
+            sub(/^#[[:space:]]*[Vv]ersion:[[:space:]]*/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == "") next
+            print line
             exit
         }
     ' "$path"
@@ -131,10 +125,9 @@ json_escape() {
 }
 
 [ -n "$repo_root" ] || repo_root="$(resolve_repo_root || true)"
-[ -n "$repo_root" ] || die 'manifest.json not found. Pass --repo-root <path to claude-skills repo>.'
+[ -n "$repo_root" ] || die 'manifest.json not found. Pass --repo-root <path to the scripts repo>.'
 repo_root="${repo_root%/}"
-skill_install_root="${skill_install_root%/}"
-agent_install_root="${agent_install_root%/}"
+install_root="${install_root%/}"
 
 manifest_path="$repo_root/manifest.json"
 [ -f "$manifest_path" ] || die "Manifest not found: $manifest_path"
@@ -182,36 +175,21 @@ read_manifest() {
 }
 
 entries_tsv="$(read_manifest)"
-[ -n "$entries_tsv" ] || die "No entries found in $manifest_path (manifestVersion 2 expects an 'entries' array)."
+[ -n "$entries_tsv" ] || die "No entries found in $manifest_path (manifestVersion 1 expects an 'entries' array)."
 
 # Rows, TAB-separated: name, kind, manifest, repo, local, status, drift, repoPath, localPath
 rows=""
-known_skills=""
-known_agents=""
 while IFS=$'\t' read -r name manifest_version rel_path kind; do
     [ -n "$name" ] || continue
-    case "$kind" in
-        skill)
-            repo_md="$repo_root/$rel_path/SKILL.md"
-            local_path="$skill_install_root/$name"
-            local_md="$local_path/SKILL.md"
-            known_skills="${known_skills}${name}"$'\n'
-            ;;
-        agent)
-            repo_md="$repo_root/$rel_path/AGENT.md"
-            local_md="$agent_install_root/$name.md"
-            local_path="$local_md"
-            known_agents="${known_agents}${name}"$'\n'
-            ;;
-        *)
-            die "Manifest entry '$name' has kind '$kind'; every entry must declare kind as 'skill' or 'agent'."
-            ;;
-    esac
+    [ "$kind" = "script" ] || die "Manifest entry '$name' has kind '$kind'; every entry must declare kind as 'script'."
 
-    repo_version="$(frontmatter_field "$repo_md" version)"
-    local_version="$(frontmatter_field "$local_md" version)"
+    repo_file="$repo_root/$rel_path"
+    local_file="$install_root/$name"
 
-    if [ ! -f "$local_md" ]; then
+    repo_version="$(header_version "$repo_file")"
+    local_version="$(header_version "$local_file")"
+
+    if [ ! -f "$local_file" ]; then
         status="MISSING"
     elif [ -z "$local_version" ]; then
         status="UNVERSIONED"
@@ -222,37 +200,13 @@ while IFS=$'\t' read -r name manifest_version rel_path kind; do
     drift="false"
     [ "$repo_version" = "$manifest_version" ] || drift="true"
 
-    rows="${rows}${name}"$'\t'"${kind}"$'\t'"${manifest_version}"$'\t'"${repo_version:-(none)}"$'\t'"${local_version:-(none)}"$'\t'"${status}"$'\t'"${drift}"$'\t'"${repo_root}/${rel_path}"$'\t'"${local_path}"$'\n'
+    rows="${rows}${name}"$'\t'"${kind}"$'\t'"${manifest_version}"$'\t'"${repo_version:-(none)}"$'\t'"${local_version:-(none)}"$'\t'"${status}"$'\t'"${drift}"$'\t'"${repo_file}"$'\t'"${local_file}"$'\n'
 done <<< "$entries_tsv"
-
-# Orphans, TAB-separated: name, kind, local version, path
-orphans=""
-if [ -d "$skill_install_root" ]; then
-    while IFS= read -r dir; do
-        [ -n "$dir" ] || continue
-        base="$(basename "$dir")"
-        if printf '%s' "$known_skills" | grep -Fxq "$base"; then continue; fi
-        okind="skill"
-        if printf '%s' "$known_agents" | grep -Fxq "$base"; then okind="skill (superseded by agent)"; fi
-        orphans="${orphans}${base}"$'\t'"${okind}"$'\t'"$(frontmatter_field "$dir/SKILL.md" version)"$'\t'"${dir}"$'\n'
-    done <<< "$(find "$skill_install_root" -mindepth 1 -maxdepth 1 -type d | sort)"
-fi
-if [ -d "$agent_install_root" ]; then
-    while IFS= read -r file; do
-        [ -n "$file" ] || continue
-        base="$(basename "$file" .md)"
-        if printf '%s' "$known_agents" | grep -Fxq "$base"; then continue; fi
-        okind="agent"
-        if printf '%s' "$known_skills" | grep -Fxq "$base"; then okind="agent (superseded by skill)"; fi
-        orphans="${orphans}${base}"$'\t'"${okind}"$'\t'"$(frontmatter_field "$file" version)"$'\t'"${file}"$'\n'
-    done <<< "$(find "$agent_install_root" -mindepth 1 -maxdepth 1 -type f -name '*.md' | sort)"
-fi
 
 if [ "$json" -eq 1 ]; then
     printf '{\n'
     printf '  "repoRoot": "%s",\n' "$(json_escape "$repo_root")"
-    printf '  "skillInstallRoot": "%s",\n' "$(json_escape "$skill_install_root")"
-    printf '  "agentInstallRoot": "%s",\n' "$(json_escape "$agent_install_root")"
+    printf '  "installRoot": "%s",\n' "$(json_escape "$install_root")"
     printf '  "entries": [\n'
     first=1
     while IFS=$'\t' read -r name kind mver rver lver status drift repo_path local_path; do
@@ -264,20 +218,6 @@ if [ "$json" -eq 1 ]; then
             "$(json_escape "$lver")" "$(json_escape "$status")" "$drift" \
             "$(json_escape "$repo_path")" "$(json_escape "$local_path")"
     done <<< "$rows"
-    [ "$first" -eq 1 ] || printf '\n'
-    printf '  ],\n'
-    printf '  "orphans": [\n'
-    first=1
-    if [ -n "$orphans" ]; then
-        while IFS=$'\t' read -r name kind lver opath; do
-            [ -n "$name" ] || continue
-            [ "$first" -eq 1 ] || printf ',\n'
-            first=0
-            if [ -n "$lver" ]; then ljson="\"$(json_escape "$lver")\""; else ljson='null'; fi
-            printf '    { "Name": "%s", "Kind": "%s", "Local": %s, "Path": "%s" }' \
-                "$(json_escape "$name")" "$(json_escape "$kind")" "$ljson" "$(json_escape "$opath")"
-        done <<< "$orphans"
-    fi
     [ "$first" -eq 1 ] || printf '\n'
     printf '  ]\n'
     printf '}\n'
@@ -307,22 +247,15 @@ print_table() {
 }
 
 printf 'Repo:    %s\n' "$repo_root"
-printf 'Skills:  %s\n' "$skill_install_root"
-printf 'Agents:  %s\n' "$agent_install_root"
+printf 'Scripts: %s\n' "$install_root"
 printf '\n'
 printf '%s' "$rows" | cut -f1-6 | print_table 'Name,Kind,Manifest,Repo,Local,Status'
 printf '\n'
 
 drifted="$(printf '%s' "$rows" | awk -F '\t' '$7 == "true" { print $1 "\t" $2 "\t" $3 "\t" $4 }')"
 if [ -n "$drifted" ]; then
-    printf 'Manifest drift (manifest version != repo SKILL.md/AGENT.md version):\n'
+    printf 'Manifest drift (manifest version != repo header version):\n'
     printf '%s\n' "$drifted" | print_table 'Name,Kind,Manifest,Repo'
-    printf '\n'
-fi
-
-if [ -n "$orphans" ]; then
-    printf 'Installed but not in manifest:\n'
-    printf '%s' "$orphans" | awk -F '\t' '{ print $1 "\t" $2 "\t" ($3 == "" ? "(none)" : $3) "\t" $4 }' | print_table 'Name,Kind,Local,Path'
     printf '\n'
 fi
 

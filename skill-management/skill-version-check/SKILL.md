@@ -1,9 +1,9 @@
 ---
 name: skill-version-check
-version: 2.0.0
+version: 3.0.0
 description: >
   Pulls the latest `jambolo/claude-skills` from GitHub, then checks the skill
-  and agent versions recorded in that repo's `skills-manifest.json` against the
+  and agent versions recorded in that repo's `manifest.json` against the
   versions of the same entries installed locally under `~/.claude/skills/`
   (skills) and `~/.claude/agents/` (agents), and reports
   which local entries are outdated, missing, ahead, or unversioned — and
@@ -20,7 +20,7 @@ description: >
 
 # Skill version check
 
-Compare `skills-manifest.json` (the repo's record of the current version of
+Compare `manifest.json` (the repo's record of the current version of
 every skill and agent it owns, including this one) against what is actually
 installed at `~/.claude/skills/<name>/` (skills) or `~/.claude/agents/<name>.md`
 (agents), and reconcile the difference. The repo is
@@ -37,14 +37,14 @@ time**, whichever operation follows.
 | **Refresh** | always, before any of the others | Pull the latest `jambolo/claude-skills` into the local repo root. |
 | **Check** | "check skill versions", "am I up to date" | Read-only report. |
 | **Sync** | "update/install my skills", "sync skills" | Check, then copy repo → install roots for the entries the user confirms. |
-| **Bookkeeping** | "regenerate the manifest", "bump <name>" | Rewrite `skills-manifest.json` from repo frontmatter; bump an entry's `version:` when asked. |
+| **Bookkeeping** | "regenerate the manifest", "bump <name>" | Rewrite `manifest.json` from repo frontmatter; bump an entry's `version:` when asked. |
 
 ## Paths
 
 - **Upstream** — `https://github.com/jambolo/claude-skills`
   (`git@github.com:jambolo/claude-skills.git` over SSH). The only remote this
   skill pulls from.
-- **Repo root** — the folder containing `skills-manifest.json`. Resolve in this
+- **Repo root** — the folder containing `manifest.json`. Resolve in this
   order: (1) the current working directory or its nearest ancestor holding that
   file; (2) `C:\Users\<user>\Projects\Claude\claude-skills` if it exists;
   (3) ask the user for the path, or offer to clone upstream (Refresh). Never
@@ -142,7 +142,7 @@ to read the manifest when it is on `PATH` and falls back to a built-in parser
 when it is not.
 
 The script prints one row per manifest entry with `Name`, `Kind` (`skill` or
-`agent`), `Manifest` (version in `skills-manifest.json`), `Repo` (version in the
+`agent`), `Manifest` (version in `manifest.json`), `Repo` (version in the
 repo's `SKILL.md` / `AGENT.md`), `Local` (version in the installed copy), and a
 status:
 
@@ -242,7 +242,7 @@ reintroduces versions upstream has already moved past.
 
 **Regenerate the manifest.** Walk every `*/*/SKILL.md` and `*/*/AGENT.md`
 under the repo root, read `name` and `version` from the frontmatter, and rewrite
-`skills-manifest.json`:
+`manifest.json`:
 
 ```json
 {
@@ -276,7 +276,7 @@ under `name:`) rather than omitting the entry from the manifest.
   kind between skill and agent.
 
 Edit `version:` in that entry's `SKILL.md` / `AGENT.md`, then update the same
-entry in `skills-manifest.json`. The two must always agree — that is what Check
+entry in `manifest.json`. The two must always agree — that is what Check
 calls drift. When the `project-management` family's shared "Shared model"
 section is edited, bump all three of `planner`, `decomposer`, and `supervisor`
 together, since the change lands in all three files.

@@ -22,7 +22,7 @@ Agent frontmatter additionally pins `model:` and `effort:` (so a caller never pa
 
 ## Versioning
 
-Every `SKILL.md` and `AGENT.md` carries a semver `version:` line directly under `name:`, and `skills-manifest.json` at the repo root mirrors it for every entry (including `skill-version-check` itself); every entry carries `"kind"`, either `"skill"` or `"agent"` — there is no default kind, and the entries live in the manifest's `entries` array. **The two must always agree** — a mismatch is "manifest drift" and is treated as an error by the `skill-version-check` skill, which compares the manifest against the versions installed under `~/.claude/skills/` and `~/.claude/agents/`.
+Every `SKILL.md` and `AGENT.md` carries a semver `version:` line directly under `name:`, and `manifest.json` at the repo root mirrors it for every entry (including `skill-version-check` itself); every entry carries `"kind"`, either `"skill"` or `"agent"` — there is no default kind, and the entries live in the manifest's `entries` array. **The two must always agree** — a mismatch is "manifest drift" and is treated as an error by the `skill-version-check` skill, which compares the manifest against the versions installed under `~/.claude/skills/` and `~/.claude/agents/`.
 
 After changing a skill's or agent's content, bump its `version:` (patch = wording, minor = new capability or a changed agent `model`/`effort`/`tools`, major = changed operations/inputs/artifact formats or a change of kind) **and** update its manifest entry in the same commit. Editing the `project-management` shared "Shared model" section means bumping all three of `planner`, `decomposer`, `supervisor`.
 
@@ -33,12 +33,12 @@ Each family has its own `CLAUDE.md` with the detail; it loads when you work unde
 - **`advent-of-code/`** — the language-agnostic AoC skill. See `advent-of-code/CLAUDE.md`.
 - **`new-project/`** — the per-language scaffolders, which also bootstrap `advent-of-code` scaffolds. See `new-project/CLAUDE.md`: its **"Scaffolder conventions"** section is the shared contract, and `advent-of-code`'s inline scaffold fallback follows it too.
 - **`project-management/`** — the `lead-developer` skill over the planner → decomposer → supervisor pipeline, whose stages (plus the supervisor's `worker`) are **agents**, not skills. See `project-management/CLAUDE.md`. When editing any of the three pipeline agents, the **"Shared model" section is duplicated verbatim across all three AGENT.md files and must be kept in sync**.
-- **`skill-management/`** — repo self-maintenance (`skill-version-check`). See `skill-management/CLAUDE.md`.
+- **`skill-management/`** — version bookkeeping: `skill-version-check` (this repo's skills/agents) and `script-version-check` (external bash-script repos → `~/bin`). See `skill-management/CLAUDE.md`.
 
 ## Validating a change
 
 - End-to-end: copy the skill folder to `~/.claude/skills/<name>/` (or the agent's `AGENT.md` to `~/.claude/agents/<name>.md`, then start a new session), invoke it in an empty scratch directory, and inspect the resulting git log + tree.
-- Frontmatter sanity: `name` matches the folder; `version` is bumped and matches `skills-manifest.json`; `description` lists trigger phrases (and, for an agent, exclusions).
+- Frontmatter sanity: `name` matches the folder; `version` is bumped and matches `manifest.json`; `description` lists trigger phrases (and, for an agent, exclusions).
 - Version/manifest state: `pwsh skill-management/skill-version-check/scripts/Compare-SkillVersions.ps1 -RepoRoot .` (or `bash skill-management/skill-version-check/scripts/compare-skill-versions.sh --repo-root .`) — the "Manifest drift" section must be empty.
 
 ## Notes
