@@ -1,6 +1,6 @@
 # Claude Skills
 
-A collection of [Claude Code skills](https://docs.claude.com/en/docs/claude-code/skills) for scaffolding new projects, running a supervised multi-agent project-management pipeline, managing Advent of Code solutions, and keeping the installed copies up to date. Skills — and, in `project-management/`, the Claude Code agent definitions they drive — are grouped by family into category folders (`advent-of-code/`, `new-project/`, `project-management/`, `skill-management/`), each holding one or more leaf folders.
+A collection of [Claude Code skills](https://docs.claude.com/en/docs/claude-code/skills) for scaffolding new projects, running a supervised multi-agent project-management pipeline, managing Advent of Code solutions, querying financial market data, and keeping the installed copies up to date. Skills — and, in `project-management/`, the Claude Code agent definitions they drive — are grouped by family into category folders (`advent-of-code/`, `finance/`, `new-project/`, `project-management/`, `skill-management/`), each holding one or more leaf folders.
 
 ## advent-of-code
 
@@ -22,6 +22,14 @@ A skill-driven, agent-executed pipeline for building a whole project — or one 
 - **worker** (agent, Sonnet / low, no `Agent` tool, turn-capped) — executes exactly one step from a packet inside the worktree it is given, runs the acceptance itself, writes its report, and finishes with exactly one commit. Carries the worker contract so the supervisor never restates it.
 
 Agents cannot reach the user, so every one ends with `RESULT: done | needs-human | failed`; a `needs-human` propagates up to `lead-developer`, which relays it and stops.
+
+## finance
+
+Financial market data.
+
+### treasury-prices
+
+Looks up U.S. Treasury historical prices — buy, sell, and end-of-day clean prices per 100 face value — for any CUSIP and date, and computes the full invoice value of a TIPS: daily CPI index ratio, inflation-adjusted principal, accrued interest, and dirty price. Data comes from TreasuryDirect FedInvest and the TA_WS API.
 
 ## new-project
 
@@ -86,6 +94,6 @@ bash skill-management/skill-version-check/scripts/compare-skill-versions.sh --re
 
 ## Repository layout
 
-Skills and agents are grouped by family into category folders at the repo root — `advent-of-code/`, `new-project/`, `project-management/`, and `skill-management/`. Each category folder holds one or more leaf folders. A **skill** leaf contains a `SKILL.md` (the skill definition with YAML frontmatter, including a semver `version:`) plus optional `templates/`, `reference/`, and `scripts/` assets, and installs as a folder: copy it to `~/.claude/skills/<name>/`. An **agent** leaf contains a single `AGENT.md` (a Claude Code subagent definition — `model`, `effort`, `tools`, and the same `version:` line) and installs as a file: copy it to `~/.claude/agents/<name>.md`, then start a new session. In both cases `<name>` matches the frontmatter — or let `skill-version-check` do it.
+Skills and agents are grouped by family into category folders at the repo root — `advent-of-code/`, `finance/`, `new-project/`, `project-management/`, and `skill-management/`. Each category folder holds one or more leaf folders. A **skill** leaf contains a `SKILL.md` (the skill definition with YAML frontmatter, including a semver `version:`) plus optional `templates/`, `reference/`, and `scripts/` assets, and installs as a folder: copy it to `~/.claude/skills/<name>/`. An **agent** leaf contains a single `AGENT.md` (a Claude Code subagent definition — `model`, `effort`, `tools`, and the same `version:` line) and installs as a file: copy it to `~/.claude/agents/<name>.md`, then start a new session. In both cases `<name>` matches the frontmatter — or let `skill-version-check` do it.
 
 `manifest.json` at the repo root lists every skill and agent in its `entries` array, each with its current version, path, and mandatory `kind` (`skill` or `agent`); it is kept in lockstep with the frontmatter and is what `skill-version-check` compares installed copies against.

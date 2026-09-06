@@ -1,6 +1,6 @@
 {
   "manifestVersion": 2,
-  "updated": "2026-08-25",
+  "updated": "2026-09-06",
   "skillInstallRoot": "~/.claude/skills",
   "agentInstallRoot": "~/.claude/agents",
   "entries": [
@@ -10,6 +10,13 @@
       "kind": "skill",
       "path": "advent-of-code/advent-of-code",
       "family": "advent-of-code"
+    },
+    {
+      "name": "treasury-prices",
+      "version": "1.0.0",
+      "kind": "skill",
+      "path": "finance/treasury-prices",
+      "family": "finance"
     },
     {
       "name": "new-cpp-project",

@@ -26,11 +26,12 @@ Every `SKILL.md` and `AGENT.md` carries a semver `version:` line directly under 
 
 After changing a skill's or agent's content, bump its `version:` (patch = wording, minor = new capability or a changed agent `model`/`effort`/`tools`, major = changed operations/inputs/artifact formats or a change of kind) **and** update its manifest entry in the same commit. Editing the `project-management` shared "Shared model" section means bumping all three of `planner`, `decomposer`, `supervisor`.
 
-## Four skill families
+## Five skill families
 
 Each family has its own `CLAUDE.md` with the detail; it loads when you work under that folder.
 
 - **`advent-of-code/`** — the language-agnostic AoC skill. See `advent-of-code/CLAUDE.md`.
+- **`finance/`** — the `treasury-prices` skill, a Python CLI over TreasuryDirect FedInvest and TA_WS. The only family with a test suite: `pytest.ini`, `requirements-dev.txt`, and `tests/` sit at the family level, deliberately outside the installed leaf. See `finance/CLAUDE.md`.
 - **`new-project/`** — the per-language scaffolders, which also bootstrap `advent-of-code` scaffolds. See `new-project/CLAUDE.md`: its **"Scaffolder conventions"** section is the shared contract, and `advent-of-code`'s inline scaffold fallback follows it too.
 - **`project-management/`** — the `lead-developer` skill over the planner → decomposer → supervisor pipeline, whose stages (plus the supervisor's `worker`) are **agents**, not skills. See `project-management/CLAUDE.md`. When editing any of the three pipeline agents, the **"Shared model" section is duplicated verbatim across all three AGENT.md files and must be kept in sync**.
 - **`skill-management/`** — version bookkeeping: `skill-version-check` (this repo's skills/agents) and `script-version-check` (external bash-script repos → `~/bin`). See `skill-management/CLAUDE.md`.
