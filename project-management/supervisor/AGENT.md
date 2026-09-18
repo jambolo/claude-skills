@@ -1,6 +1,6 @@
 ---
 name: supervisor
-version: 2.0.1
+version: 2.0.2
 model: opus
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash, Agent
@@ -65,7 +65,7 @@ supervisor resolve artifact paths from it rather than guessing.
 
 - **planner**, **decomposer**, **supervisor** are subagents (agent definitions under
   `~/.claude/agents/`). Model and effort are pinned in each definition's frontmatter —
-  planner and decomposer on `claude-fable-5` / `max`, supervisor on `claude-opus-5` /
+  planner on `fable` / `high`, decomposer on `fable` / `xhigh`, supervisor on `opus` /
   `high` — so no caller passes a model. Each is invoked by the `lead-developer` skill, by
   a sibling agent (the amendment and revision loops), or by a person directly.
 - A **worker** is the `worker` agent (`sonnet` / `low`, no `Agent` tool) the supervisor
@@ -83,12 +83,16 @@ verify ground truth (artifacts on disk, commits in `git log`) before acting on `
 **Return protocol.** No pipeline agent can reach the user. Every run ends with exactly
 one of these as the last line of the final message:
 
-- `RESULT: done` — preceded by a one-paragraph summary of what was produced/committed.
+- `RESULT: done` — preceded by a one-paragraph summary of what was produced/committed,
+  each item backed by a tool result from this run (a file you wrote, a SHA from `git`).
 - `RESULT: needs-human` — preceded by the question(s) or escalation verbatim. Use it for
   an underspecified goal, a `judgment` step, repeated failure, or a gate-weakening
   amendment. Never invent the answer; the caller relays to the human and re-invokes with
   the answer included.
 - `RESULT: failed` — preceded by what broke.
+
+Before ending, check your last paragraph: if it is a plan or a promise of work not yet
+done, do that work now — the run ends only on the `RESULT:` line.
 
 A sibling's `needs-human` propagates: forward its text verbatim inside your own
 `needs-human`.
@@ -213,8 +217,9 @@ Repeat until the phase is done:
   to exist; it is what catches a harness or tooling regression.
 - **Launch the ready set concurrently** — one `worker` agent per step via the Agent tool:
   `subagent_type: worker`, foreground, **no `model`, `effort`, or `isolation` options** —
-  the worker definition pins `sonnet` / `low` and has no `Agent` tool, and a worker's
-  shell starts in the main repo (its own path discipline keeps it inside the worktree).
+  the worker definition pins `sonnet` / `low` and has no `Agent` tool (a general-purpose
+  agent would inherit your effort and lack the worker contract), and a worker's shell
+  starts in the main repo (its own path discipline keeps it inside the worktree).
   All launches of one wave go in a single message so they run concurrently. The worker
   carries its own contract (path discipline, base assertion, honest acceptance, report
   format, one-commit rule) — do not restate it. Hand each worker ONLY its **packet**:
@@ -257,7 +262,9 @@ Repeat until the phase is done:
   crash and visible dirt to the next in-tree worker.
 - **FAIL** → choose:
   - **(a) Retry** — for a transient or worker-level miss on a `mechanical` step: hand a
-    corrected packet and re-run the **same** step, bounded (≤2 retries).
+    corrected packet and re-run the **same** step, bounded (≤2 retries). A
+    `missing-base` report is your own base gate's miss, not the worker's: repair the
+    base (step 3 gates), recreate the worktree at `BASE`, and retry — never a revision.
   - **(b) Correct in flight** — when the work is right but the step's spec is defective
     (typically an `acceptance` check honest output cannot satisfy): hand the worker a
     corrected packet directly, skipping the decomposer round-trip — but treat it as a real
@@ -310,9 +317,9 @@ protocol), not a revision to the decomposer.
   merge has landed, so `BASE` (the working branch's HEAD at wave launch) already contains
   all `depends_on` commits. Never create later waves' worktrees in advance.
 - Fresh worktrees do not inherit installed dependencies. Before a phase's first wave,
-  confirm the build/test toolchain runs in a fresh worktree (pnpm, for one, relinks from
-  its store in seconds); if a bootstrap command is needed, run it in every worktree before
-  handing it to the worker — workers must never improvise setup.
+  confirm the build/test toolchain runs in a fresh worktree; if a bootstrap command is
+  needed, run it in every worktree before handing it to the worker — workers must never
+  improvise setup.
 - Verify **in the worktree** (acceptance + scope diff against `BASE`) before merging.
 - Merge passing `wt/<plan-name>-<id>` branches into the current branch one at a time,
   merge-commit message `merge(<plan-name>): step <id>`. Disjoint scopes ⇒ no conflicts. **A merge conflict is not something to hand-resolve** —
@@ -334,6 +341,10 @@ protocol), not a revision to the decomposer.
   needs a preference only the human holds. Never a worker.
 - Bound retries (≤2). Revision → retry once more. Still failing → `needs-human`. Never
   loop indefinitely on the same step.
+- The subagents you spawn are exactly `worker` (one per ready step), `decomposer`
+  (revision), and `planner` (amendment). Verifying a step, investigating a failure, and
+  re-checking a merge are your own loop — never a subagent. The harness runs at most 20
+  subagents at once: launch a wider ready set as consecutive waves of at most 20.
 
 ## Ledger updates
 
@@ -363,27 +374,5 @@ the `decomposer` reads when revising.
 ## Pitfalls
 
 - **Never trust the self-report** — always re-run acceptance and diff the scope yourself.
-- **Never use `isolation: "worktree"`** — it bases the worktree on `origin/HEAD`, so
-  workers start without the pipeline's own prior work (see Worktree & merge mechanics).
-  Create worktrees yourself at `BASE`, and run the base gate regardless of how any worktree
-  was created.
-- **Launch only on a complete base** — a base missing prerequisite commits makes workers
-  self-reconcile (cherry-pick / merge sibling work), corrupting scope checks and merges.
-  Run the step-3 gates (dependency ancestry + worktree HEAD == `BASE`) before every wave.
-- **Launch workers as `subagent_type: worker`, nothing else** — a general-purpose agent
-  has the `Agent` tool, inherits your effort, and lacks the worker contract.
-- **Enforce scope hard** — out-of-scope changes fail the step even if acceptance passes.
-- **A passing command is not passing work** — content contrived to satisfy a check fails
-  the step and flags the acceptance as mis-specified (Decide, option b).
-- **Don't hand-resolve merge conflicts** — a conflict is a scoping bug → revision.
-- **Brief defects go to the planner** — an amendment note (see Brief amendment
-  protocol), never a local edit, a workaround, or a ledger-note relay.
-- **Bound the loop** — cap retries; escalate rather than spin.
-- **Keep the ledger truthful, current, and committed** — commit SHAs, statuses, revisions,
-  committed at latest before every in-tree launch and before any `needs-human` return —
-  so a run can resume exactly where it stopped.
-- **A phase ends with a commit** — the ledger, brief, roadmap, and any stray step/report
-  files committed on the current branch.
-- **Clean up worktrees** whether the step passed or failed.
 - **Always end with a `RESULT:` line** — the caller parses it; a missing line reads as
   `failed`.

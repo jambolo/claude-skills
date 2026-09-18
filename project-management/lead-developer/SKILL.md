@@ -1,6 +1,6 @@
 ---
 name: lead-developer
-version: 2.0.0
+version: 2.0.1
 description: >
   Top stage of the project-management family, sitting above the planner →
   decomposer → supervisor pipeline. Performs the role of a lead developer: turns a
@@ -66,13 +66,14 @@ Two operations:
 **Context isolation.** The pipeline stages are **agent definitions** installed under
 `~/.claude/agents/` — `planner`, `decomposer`, `supervisor`, and the supervisor's
 `worker` — designed to run in isolation and communicate through files. Every pipeline
-invocation therefore runs as a **fresh subagent** via the Agent tool, foreground, never in
-your own context:
+invocation therefore runs as a **fresh subagent** via the Agent tool — foreground, never
+in your own context (it must stay small enough to drive many milestones), and never a
+general-purpose subagent told to "act as" a stage:
 
 | Invocation | `subagent_type` | model / effort (pinned in the agent definition) |
 | --- | --- | --- |
-| plan a milestone; amendments | `planner` | fable / max |
-| decompose a phase | `decomposer` | fable / max |
+| plan a milestone; amendments | `planner` | fable / high |
+| decompose a phase | `decomposer` | fable / xhigh |
 | supervise a phase | `supervisor` | opus / high |
 
 Pass **no** `model`, `effort`, or `isolation` option — the definition pins model and
@@ -83,9 +84,9 @@ carry their own return protocol. If the Agent tool reports an unknown `subagent_
 the agents are not installed — stop and tell the user (the `skill-version-check` skill
 installs them).
 
-Depth budget: you run inline at depth 0, so supervisor → decomposer/planner → (nothing)
-fits the harness's three-level subagent limit. Never invoke this skill from inside a
-subagent.
+Depth budget: you run inline at depth 0, so the deepest chain — supervisor → decomposer
+→ planner (amendment) — fits the harness's three-level subagent limit. Never invoke this
+skill from inside a subagent.
 
 **Agent return protocol.** Every pipeline agent ends its final message with exactly one
 of:
@@ -257,8 +258,8 @@ attempt remediation yourself.
 
   1. On the milestone branch, delete the pipeline artifacts not retained: roadmap, all
      step files, all worker reports — keep `<project-name>-m<n>-brief.md` and
-     `<project-name>-m<n>-ledger.md` (post-mortem inputs). Commit —
-     `lead(<project-name>): m<n> artifact cleanup`.
+     `<project-name>-m<n>-ledger.md` (post-mortem inputs), so the squashed commit lands
+     only code, brief, and ledger. Commit — `lead(<project-name>): m<n> artifact cleanup`.
   2. `git checkout develop` (confirm its HEAD is the milestone branch's base — if
      `develop` moved during the run, stop and reconcile with the user), then
      `git merge --squash milestone/<n>-<slug>` and commit —
@@ -279,25 +280,6 @@ report it and wait; adding milestones is a new plan-operation conversation.
 - **Stay at project altitude.** Naming phases, steps, or files to edit means you have
   dropped into the planner's or decomposer's job. Milestones carry goals and DoDs, not
   designs.
-- **One pipeline invocation, one fresh agent** — always `subagent_type: planner` /
-  `decomposer` / `supervisor`, never a general-purpose subagent told to "act as" one,
-  and never the work in your own context; your context must stay small enough to drive
-  many milestones.
-- **Never invent answers to an agent's questions.** `needs-human` clarifications go
-  to the user verbatim; everything else stops the run. Human intervention is a stop,
-  not a speed bump.
-- **An agent's `done` is a lead, not proof** — verify artifacts, commits, and ledger
-  state after every invocation.
-- **`develop` must pre-exist and be clean** — never create it, never merge with a
-  dirty tree, never squash-merge onto a `develop` that moved since branching.
-- **Evaluate against the milestone DoD, not the supervisor's word** — the supervisor
-  proves steps and phases; only you prove the milestone.
-- **Keep the project ledger truthful and committed on `develop`** — it is what makes a
-  multi-session project resumable.
 - **The project plan is immutable during execution.** A defective milestone section is
   reported to the user, not silently edited; brief/roadmap defects inside a milestone
   are the planner's (the pipeline routes them via amendment notes on its own).
-- **Cleanup is pre-squash** — roadmap, steps, and reports die on the milestone branch
-  so the squashed commit lands only code + brief + ledger.
-- **Delete milestone branches with `-D`** — after a squash merge, git considers the
-  branch unmerged; `-d` will refuse and stall the loop.

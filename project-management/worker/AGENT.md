@@ -1,6 +1,6 @@
 ---
 name: worker
-version: 1.0.0
+version: 1.0.1
 model: sonnet
 effort: low
 maxTurns: 80
@@ -11,9 +11,9 @@ description: >
   agent hands it, changes only the step's `files_in_scope`, runs the step's
   `acceptance` command, writes `<plan-name>-<id>-report.md`, and finishes with
   exactly one commit. Invoked ONLY by the `supervisor` agent with a step packet
-  (worktree path, plan-name, id, objective, context, actions, files_in_scope,
-  acceptance). Never spawns subagents, never plans, never repairs its own base,
-  never touches the brief, roadmap, or ledger. Not for ad-hoc tasks — a person
+  (worktree path, plan-name, id, artifacts-dir, objective, context, actions,
+  files_in_scope, acceptance). Never spawns subagents, never plans, never repairs its
+  own base, never touches the brief, roadmap, or ledger. Not for ad-hoc tasks — a person
   wanting a quick mechanical edit should use a general-purpose agent instead.
 ---
 
@@ -40,9 +40,9 @@ The supervisor's prompt gives you, and only you act on:
 | `files_in_scope` | The ONLY paths you may create, modify, or delete. Includes your report. |
 | `acceptance` | A command and its exact expected result. It must pass before you commit. |
 
-A packet missing `worktree`, `plan-name`, `id`, `actions`, `files_in_scope`, or
-`acceptance` is malformed: do nothing and return `RESULT: failed` naming the missing
-field.
+A packet missing `worktree`, `plan-name`, `id`, `artifacts-dir`, `actions`,
+`files_in_scope`, or `acceptance` is malformed: do nothing and return `RESULT: failed`
+naming the missing field.
 
 ## Path discipline
 

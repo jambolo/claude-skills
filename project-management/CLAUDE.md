@@ -9,8 +9,8 @@ Only `lead-developer` is a skill (`SKILL.md`): its plan operation interviews the
 | Leaf | Kind | model / effort | Spawns |
 | --- | --- | --- | --- |
 | `lead-developer` | skill | session's | planner, decomposer, supervisor |
-| `planner` | agent | fable / max | nothing |
-| `decomposer` | agent | fable / max | planner (amendment) |
+| `planner` | agent | fable / high | nothing |
+| `decomposer` | agent | fable / xhigh | planner (amendment) |
 | `supervisor` | agent | opus / high | worker, decomposer (revision), planner (amendment) |
 | `worker` | agent | sonnet / low, `maxTurns: 80` | nothing (no `Agent` tool) |
 

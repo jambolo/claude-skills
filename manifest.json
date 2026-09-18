@@ -1,6 +1,6 @@
 {
   "manifestVersion": 2,
-  "updated": "2026-09-06",
+  "updated": "2026-09-17",
   "skillInstallRoot": "~/.claude/skills",
   "agentInstallRoot": "~/.claude/agents",
   "entries": [
@@ -62,35 +62,35 @@
     },
     {
       "name": "lead-developer",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "kind": "skill",
       "path": "project-management/lead-developer",
       "family": "project-management"
     },
     {
       "name": "decomposer",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "kind": "agent",
       "path": "project-management/decomposer",
       "family": "project-management"
     },
     {
       "name": "planner",
-      "version": "2.0.1",
+      "version": "2.1.0",
       "kind": "agent",
       "path": "project-management/planner",
       "family": "project-management"
     },
     {
       "name": "supervisor",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "kind": "agent",
       "path": "project-management/supervisor",
       "family": "project-management"
     },
     {
       "name": "worker",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "kind": "agent",
       "path": "project-management/worker",
       "family": "project-management"
