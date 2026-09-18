@@ -1,7 +1,7 @@
 ---
 name: decomposer
-version: 2.0.0
-model: claude-fable-5
+version: 2.0.1
+model: fable
 effort: max
 tools: Read, Write, Edit, Grep, Glob, Bash, Agent
 description: >

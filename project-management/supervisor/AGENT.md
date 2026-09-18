@@ -1,7 +1,7 @@
 ---
 name: supervisor
-version: 2.0.0
-model: claude-opus-5
+version: 2.0.1
+model: opus
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash, Agent
 description: >
