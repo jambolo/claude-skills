@@ -1,6 +1,6 @@
 ---
 name: lead-developer
-version: 2.0.1
+version: 2.1.0
 description: >
   Top stage of the project-management family, sitting above the planner →
   decomposer → supervisor pipeline. Performs the role of a lead developer: turns a
@@ -200,11 +200,23 @@ what makes a run resumable:
      merged / escalated) | detail -->
 ```
 
-### 5. Commit and hand off
+### 5. Exclude artifacts from formatter gates
 
-Check out `develop`, commit both files there — message
-`lead(<project-name>): project plan` — and tell the user the plan is ready and the next
-move is the execute operation.
+Project and pipeline artifacts hold byte-exact literals the pipeline compares literally,
+so no formatter or auto-fixer may touch them. Find every repo tool that formats, lints,
+or format-checks Markdown under `artifacts-dir` — e.g. Prettier (config file or
+`prettier` in `package.json`), markdownlint, dprint, a `.pre-commit-config.yaml` hook. For
+each whose ignore mechanism does not already cover them, add
+`<artifacts-dir>/<project-name>-*.md` (covers the project plan, project ledger, and every
+milestone's pipeline artifacts) to it — `.prettierignore`, `.markdownlintignore`, dprint
+`excludes`, pre-commit `exclude:` — matching the file's existing style. A tool with no
+ignore mechanism you recognize: ask the user. State the exclusions added to the user.
+
+### 6. Commit and hand off
+
+Check out `develop`, commit both files there, plus any ignore file edited in section 5 —
+message `lead(<project-name>): project plan` — and tell the user the plan is ready and
+the next move is the execute operation.
 
 ## Execute operation — execute the project
 

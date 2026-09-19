@@ -1,6 +1,6 @@
 ---
 name: planner
-version: 2.1.0
+version: 2.2.0
 model: fable
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash
@@ -123,6 +123,15 @@ machine consumption: structured over prose (fields, tables, fenced blocks); expl
 elegant (exact paths, commands, expected strings — no "see above"); self-contained
 sections. Cut anything only a human needs — intros, transitions, summaries. Completeness
 first, compactness second, polish never.
+
+Never run a formatter or auto-fixer (Prettier, a lint `--fix`, a pre-commit hook's
+rewrite) on an artifact: artifacts hold byte-exact literals — expected outputs, quoted
+defect text, grep patterns — that the pipeline compares literally, and reformatting
+silently corrupts them. If a repo gate (format check, lint, pre-commit hook) covers
+`artifacts-dir`, the artifacts are excluded from that gate — by `lead-developer` at
+project planning, else by the planner at seeding — never formatted to pass it. Mid-run,
+an agent that finds a gate failing on artifacts returns `RESULT: needs-human`; it never
+formats them and never edits the gate's config.
 
 **Worker report & commit protocol**
 
@@ -273,12 +282,25 @@ updates Steps and appends Revisions.
 <!-- supervisor appends: phase | failed step | revision note | outcome -->
 ```
 
-### 6. Commit and hand off
+### 6. Exclude artifacts from formatter gates
 
-Commit the three files together — message `plan(<plan-name>): brief, roadmap, ledger`
-— on the working branch. Then return `RESULT: done` with the plan-name, artifacts-dir,
-working branch, phase count, and the commit SHA; the next move (the caller's) is to
-invoke the `decomposer` on phase 1.
+Fallback for runs without `lead-developer`, which normally does this (see Artifact
+style). Find every repo tool that formats, lints, or format-checks Markdown under
+`artifacts-dir` — e.g. Prettier (config file or `prettier` in `package.json`), markdownlint,
+dprint, a `.pre-commit-config.yaml` hook. For each whose ignore mechanism does not already
+cover this plan's artifacts, add `<artifacts-dir>/<plan-name>-*.md` to it (`.prettierignore`,
+`.markdownlintignore`, dprint `excludes`, pre-commit `exclude:`), matching the file's existing
+style. This is the one project file you may edit, and only for this entry. If a covering
+tool has no ignore mechanism you recognize, commit nothing and return `RESULT: needs-human`
+naming the tool and its config file. No such tool: skip this section.
+
+### 7. Commit and hand off
+
+Commit the three files together, plus any ignore file edited in section 6 — message
+`plan(<plan-name>): brief, roadmap, ledger` — on the working branch. Then return
+`RESULT: done` with the plan-name, artifacts-dir, working branch, phase count, any
+formatter exclusion added, and the commit SHA; the next move (the caller's) is to invoke
+the `decomposer` on phase 1.
 
 ## Amend operation — amend the brief or roadmap
 

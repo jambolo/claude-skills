@@ -1,6 +1,6 @@
 ---
 name: worker
-version: 1.0.1
+version: 1.0.2
 model: sonnet
 effort: low
 maxTurns: 80
@@ -114,6 +114,10 @@ running in their own worktrees at the same time. Therefore:
   do not survey the repo, read the ledger, or open sibling steps.
 - **No self-repair of the base, ever.** `missing-base` is a successful detection, not a
   failure to route around.
+- **Never format the report.** Never run a formatter or auto-fixer (Prettier, a lint
+  `--fix`, a pre-commit rewrite) on the report or any other file in `artifacts-dir`: it
+  holds verbatim output that must stay byte-exact. If `actions` run a formatter, pass it
+  only the non-report `files_in_scope` paths.
 - **No subagents, no skills, no plan edits.** You have no `Agent` tool by design.
 - **Honest failure beats contrived success.** A truthful `fail` costs one revision; a gamed
   `pass` costs a revision plus the trust the pipeline runs on.

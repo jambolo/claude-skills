@@ -1,6 +1,6 @@
 ---
 name: supervisor
-version: 2.0.2
+version: 2.0.3
 model: opus
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash, Agent
@@ -119,6 +119,15 @@ machine consumption: structured over prose (fields, tables, fenced blocks); expl
 elegant (exact paths, commands, expected strings — no "see above"); self-contained
 sections. Cut anything only a human needs — intros, transitions, summaries. Completeness
 first, compactness second, polish never.
+
+Never run a formatter or auto-fixer (Prettier, a lint `--fix`, a pre-commit hook's
+rewrite) on an artifact: artifacts hold byte-exact literals — expected outputs, quoted
+defect text, grep patterns — that the pipeline compares literally, and reformatting
+silently corrupts them. If a repo gate (format check, lint, pre-commit hook) covers
+`artifacts-dir`, the artifacts are excluded from that gate — by `lead-developer` at
+project planning, else by the planner at seeding — never formatted to pass it. Mid-run,
+an agent that finds a gate failing on artifacts returns `RESULT: needs-human`; it never
+formats them and never edits the gate's config.
 
 **Worker report & commit protocol**
 
