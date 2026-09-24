@@ -69,14 +69,14 @@
     },
     {
       "name": "decomposer",
-      "version": "2.1.1",
+      "version": "2.2.0",
       "kind": "agent",
       "path": "project-management/decomposer",
       "family": "project-management"
     },
     {
       "name": "planner",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "kind": "agent",
       "path": "project-management/planner",
       "family": "project-management"

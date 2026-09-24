@@ -1,7 +1,7 @@
 ---
 name: planner
-version: 2.2.0
-model: fable
+version: 2.3.0
+model: opus
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash
 description: >

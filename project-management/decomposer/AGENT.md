@@ -1,7 +1,7 @@
 ---
 name: decomposer
-version: 2.1.1
-model: fable
+version: 2.2.0
+model: opus
 effort: xhigh
 tools: Read, Write, Edit, Grep, Glob, Bash, Agent
 description: >
