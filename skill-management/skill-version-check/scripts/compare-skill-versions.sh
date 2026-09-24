@@ -21,7 +21,9 @@
 #   agent  repo <path>/AGENT.md  -> <agent-install-root>/<name>.md
 #
 # Also reports manifest drift (manifest version != repo frontmatter version)
-# and installed skills/agents the manifest does not know about.
+# and superseded leftovers: an installed skill folder whose name the manifest
+# now lists as an agent, or vice versa. Installed skills/agents the manifest
+# does not own at all are ignored.
 #
 # Usage:
 #   compare-skill-versions.sh [--repo-root <path>] [--skill-install-root <path>]
@@ -225,16 +227,16 @@ while IFS=$'\t' read -r name manifest_version rel_path kind; do
     rows="${rows}${name}"$'\t'"${kind}"$'\t'"${manifest_version}"$'\t'"${repo_version:-(none)}"$'\t'"${local_version:-(none)}"$'\t'"${status}"$'\t'"${drift}"$'\t'"${repo_root}/${rel_path}"$'\t'"${local_path}"$'\n'
 done <<< "$entries_tsv"
 
-# Orphans, TAB-separated: name, kind, local version, path
+# Superseded leftovers, TAB-separated: name, kind, local version, path.
+# Only names the manifest owns under the other kind; unowned installs are ignored.
 orphans=""
 if [ -d "$skill_install_root" ]; then
     while IFS= read -r dir; do
         [ -n "$dir" ] || continue
         base="$(basename "$dir")"
         if printf '%s' "$known_skills" | grep -Fxq "$base"; then continue; fi
-        okind="skill"
-        if printf '%s' "$known_agents" | grep -Fxq "$base"; then okind="skill (superseded by agent)"; fi
-        orphans="${orphans}${base}"$'\t'"${okind}"$'\t'"$(frontmatter_field "$dir/SKILL.md" version)"$'\t'"${dir}"$'\n'
+        if ! printf '%s' "$known_agents" | grep -Fxq "$base"; then continue; fi
+        orphans="${orphans}${base}"$'\t'"skill (superseded by agent)"$'\t'"$(frontmatter_field "$dir/SKILL.md" version)"$'\t'"${dir}"$'\n'
     done <<< "$(find "$skill_install_root" -mindepth 1 -maxdepth 1 -type d | sort)"
 fi
 if [ -d "$agent_install_root" ]; then
@@ -242,9 +244,8 @@ if [ -d "$agent_install_root" ]; then
         [ -n "$file" ] || continue
         base="$(basename "$file" .md)"
         if printf '%s' "$known_agents" | grep -Fxq "$base"; then continue; fi
-        okind="agent"
-        if printf '%s' "$known_skills" | grep -Fxq "$base"; then okind="agent (superseded by skill)"; fi
-        orphans="${orphans}${base}"$'\t'"${okind}"$'\t'"$(frontmatter_field "$file" version)"$'\t'"${file}"$'\n'
+        if ! printf '%s' "$known_skills" | grep -Fxq "$base"; then continue; fi
+        orphans="${orphans}${base}"$'\t'"agent (superseded by skill)"$'\t'"$(frontmatter_field "$file" version)"$'\t'"${file}"$'\n'
     done <<< "$(find "$agent_install_root" -mindepth 1 -maxdepth 1 -type f -name '*.md' | sort)"
 fi
 
@@ -321,7 +322,7 @@ if [ -n "$drifted" ]; then
 fi
 
 if [ -n "$orphans" ]; then
-    printf 'Installed but not in manifest:\n'
+    printf 'Superseded leftovers (installed under the old kind):\n'
     printf '%s' "$orphans" | awk -F '\t' '{ print $1 "\t" $2 "\t" ($3 == "" ? "(none)" : $3) "\t" $4 }' | print_table 'Name,Kind,Local,Path'
     printf '\n'
 fi

@@ -22,7 +22,9 @@ missing or unrecognized kind is an error. The kind selects the layout:
   agent  repo <path>\AGENT.md   -> <AgentInstallRoot>\<name>.md
 
 Also reports manifest drift (manifest version != repo frontmatter version) and
-installed skills/agents that the manifest does not know about.
+superseded leftovers: an installed skill folder whose name the manifest now
+lists as an agent, or vice versa. Installed skills/agents the manifest does not
+own at all are ignored.
 
 .PARAMETER RepoRoot
 Root of the claude-skills repo (the folder holding manifest.json).
@@ -135,11 +137,11 @@ $knownAgents = @($rows | Where-Object { $_.Kind -eq 'agent' } | ForEach-Object {
 $orphans = @()
 if (Test-Path -LiteralPath $SkillInstallRoot) {
     $orphans += @(Get-ChildItem -LiteralPath $SkillInstallRoot -Directory |
-        Where-Object { $knownSkills -notcontains $_.Name } |
+        Where-Object { $knownSkills -notcontains $_.Name -and $knownAgents -contains $_.Name } |
         ForEach-Object {
             [pscustomobject]@{
                 Name    = $_.Name
-                Kind    = if ($knownAgents -contains $_.Name) { 'skill (superseded by agent)' } else { 'skill' }
+                Kind    = 'skill (superseded by agent)'
                 Local   = (Get-FrontmatterField -Path (Join-Path $_.FullName 'SKILL.md') -Field 'version')
                 Path    = $_.FullName
             }
@@ -147,11 +149,11 @@ if (Test-Path -LiteralPath $SkillInstallRoot) {
 }
 if (Test-Path -LiteralPath $AgentInstallRoot) {
     $orphans += @(Get-ChildItem -LiteralPath $AgentInstallRoot -File -Filter '*.md' |
-        Where-Object { $knownAgents -notcontains $_.BaseName } |
+        Where-Object { $knownAgents -notcontains $_.BaseName -and $knownSkills -contains $_.BaseName } |
         ForEach-Object {
             [pscustomobject]@{
                 Name    = $_.BaseName
-                Kind    = if ($knownSkills -contains $_.BaseName) { 'agent (superseded by skill)' } else { 'agent' }
+                Kind    = 'agent (superseded by skill)'
                 Local   = (Get-FrontmatterField -Path $_.FullName -Field 'version')
                 Path    = $_.FullName
             }
@@ -182,7 +184,7 @@ if ($drifted.Count -gt 0) {
 }
 
 if ($orphans.Count -gt 0) {
-    Write-Output 'Installed but not in manifest:'
+    Write-Output 'Superseded leftovers (installed under the old kind):'
     $orphans | Format-Table Name, Kind, Local, Path -AutoSize | Out-String -Width 200 | Write-Output
 }
 

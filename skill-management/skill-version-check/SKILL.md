@@ -1,6 +1,6 @@
 ---
 name: skill-version-check
-version: 3.0.0
+version: 3.1.0
 description: >
   Pulls the latest `jambolo/claude-skills` from GitHub, then checks the skill
   and agent versions recorded in that repo's `manifest.json` against the
@@ -63,6 +63,8 @@ time**, whichever operation follows.
   branch on `kind`.
 - Plugin skills and agents (`~/.claude/plugins/**`) are out of scope. Do not
   read, report, or modify them.
+- Skills and agents installed under the install roots that the manifest does
+  not own are likewise out of scope. Never report or mention them.
 
 ## Refresh — pull from GitHub
 
@@ -162,13 +164,14 @@ It also prints two secondary sections:
 
 - **Manifest drift** — `Manifest` != `Repo`. The manifest is stale relative to
   the repo; fix with Bookkeeping before trusting any status column.
-- **Installed but not in manifest** — skill folders and agent files under the
-  install roots this repo does not own. Report as informational only; never
-  delete them — with one exception: an orphan whose `Kind` reads
-  `skill (superseded by agent)` (or the reverse) is a leftover from an entry
-  that changed kind in the repo. Left in place it still dispatches under the
-  old name alongside the new one, so call it out explicitly and offer to remove
-  it as part of Sync — only ever with the user's confirmation.
+- **Superseded leftovers** — an installed skill folder (or agent file) whose
+  name the manifest now lists under the other kind, shown with `Kind`
+  `skill (superseded by agent)` or `agent (superseded by skill)`. Left in
+  place it still dispatches under the old name alongside the new one, so call
+  it out explicitly and offer to remove it as part of Sync — only ever with the
+  user's confirmation. Installed skills and agents this repo does not own at
+  all are not reported: the scripts skip them, and the report never mentions
+  them.
 
 Summarize in prose: how many OK, what is stale, what is missing. Do not restate
 the whole table if everything is `OK`.
