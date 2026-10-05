@@ -14,18 +14,13 @@ pytest -m "not integration"    # unit tests (integration deselected)
 pytest -m integration          # real network to TreasuryDirect / FedInvest
 pytest                         # all
 pytest tests/test_tips_unit.py::test_name
-
-# The CLI, from this folder
-python treasury-prices/scripts/treasury.py get-price --cusip 91282CGW5 --date 2026-05-05
-python treasury-prices/scripts/treasury.py list-prices --date 2026-05-05 --type TIPS --text
-python treasury-prices/scripts/treasury.py tips-value --cusip 91282CGW5 --date 2026-05-05 --price-type sell
 ```
 
 `pytest.ini` sets `asyncio_mode = auto` — async tests need no `@pytest.mark.asyncio` — and `pythonpath = treasury-prices/scripts .`, which puts the leaf's modules on the path as top-level imports (`import fetcher`) while keeping `tests` importable as a package. Tests import the implementation directly, so a module moved within `scripts/` breaks them.
 
 ## treasury-prices
 
-`scripts/treasury.py` is an argparse CLI with three subcommands (`get-price`, `list-prices`, `tips-value`), all routed through the `_load_rows` / `_load_row` helpers — keep that single source of truth when adding subcommands. Every subcommand returns a plain dict or list; `main` serializes it as JSON unless `--text` is given, in which case `_render_text` prints an aligned table.
+`scripts/treasury.py` routes every subcommand through the `_load_rows` / `_load_row` helpers — keep that single source of truth when adding subcommands. Every subcommand returns a plain dict or list; `main` serializes it as JSON unless `--text` is given, in which case `_render_text` prints an aligned table.
 
 `SKILL.md` is the model-facing contract. Any change to a subcommand's name, flags, output shape, or error behavior must be mirrored there, and the change bumps the `version:` and its `manifest.json` entry like any other skill in this repo.
 

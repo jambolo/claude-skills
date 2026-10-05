@@ -6,13 +6,13 @@ Guidance for the `lead-developer` skill and the `planner`, `decomposer`, `superv
 
 Only `lead-developer` is a skill (`SKILL.md`): its plan operation interviews the user, which a subagent cannot do, and its execute operation runs inline at depth 0 so the chain below it fits the harness's three-level subagent limit. The four pipeline stages are **agent definitions** (`AGENT.md`, installed as `~/.claude/agents/<name>.md`): they never need the user mid-run, and the agent frontmatter gives what a skill cannot — pinned `model:`/`effort:` per stage, a `tools:` allowlist (the worker has no `Agent` tool), and `maxTurns:` on the worker.
 
-| Leaf | Kind | model / effort | Spawns |
-| --- | --- | --- | --- |
-| `lead-developer` | skill | session's | planner, decomposer, supervisor |
-| `planner` | agent | fable / high | nothing |
-| `decomposer` | agent | fable / xhigh | planner (amendment) |
-| `supervisor` | agent | opus / high | worker, decomposer (revision), planner (amendment) |
-| `worker` | agent | sonnet / low, `maxTurns: 80` | nothing (no `Agent` tool) |
+| Leaf | Kind | Spawns |
+| --- | --- | --- |
+| `lead-developer` | skill | planner, decomposer, supervisor |
+| `planner` | agent | nothing |
+| `decomposer` | agent | planner (amendment) |
+| `supervisor` | agent | worker, decomposer (revision), planner (amendment) |
+| `worker` | agent | nothing (no `Agent` tool) |
 
 Callers spawn a stage with `subagent_type: <name>` and pass **no** `model`, `effort`, or `isolation` option. Every agent ends with `RESULT: done | needs-human | failed`; a nested `needs-human` is forwarded verbatim up the chain until `lead-developer` (or the person who @-mentioned the agent) relays it to the user.
 

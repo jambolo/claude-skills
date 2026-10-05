@@ -17,3 +17,4 @@ All scaffolders converge on the same shape — preserve it when adding or editin
 - Idempotent / partial-setup aware: each skill has a "Partially set-up projects" section — existing artifacts are kept (`.gitignore` is merged by appending missing entries), generation is skipped when the language manifest already exists, and a step is committed only if it changed something.
 - act validation is optional: skipped (and reported as skipped) when `act` is not on PATH or Docker isn't running.
 - Templates use placeholder tokens (`PROJECT_NAME`, `<name>`). `.in` suffix = CMake `configure_file` input.
+- External tooling must be on PATH, per target language: `git`, `npm`/`npx`, `pnpm`, `cargo`, `cmake`, `julia` + `PkgTemplates`.
