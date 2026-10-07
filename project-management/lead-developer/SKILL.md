@@ -1,6 +1,6 @@
 ---
 name: lead-developer
-version: 2.1.0
+version: 2.2.0
 description: >
   Top stage of the project-management family, sitting above the planner →
   decomposer → supervisor pipeline. Performs the role of a lead developer: turns a
@@ -72,11 +72,14 @@ general-purpose subagent told to "act as" a stage:
 
 | Invocation | `subagent_type` | model / effort (pinned in the agent definition) |
 | --- | --- | --- |
-| plan a milestone; amendments | `planner` | fable / high |
-| decompose a phase | `decomposer` | fable / xhigh |
+| plan a milestone; amendments | `planner` | opus / high |
+| decompose a phase | `decomposer` | opus / xhigh |
 | supervise a phase | `supervisor` | opus / high |
 
-Pass **no** `model`, `effort`, or `isolation` option — the definition pins model and
+Pass `run_in_background: false` on every Agent call — the tool otherwise launches in the
+background, and each step below needs the stage's result before it continues. If the
+Agent tool does not list `run_in_background`, omit it — an unlisted parameter fails the
+call. Pass **no** `model`, `effort`, or `isolation` option — the definition pins model and
 effort, and `isolation: "worktree"` would base the agent on `origin/HEAD` instead of the
 milestone branch. The prompt hands the agent only: `plan-name`, `artifacts-dir`, working
 branch, and the operation's inputs (milestone goal text, or phase number); the agents
@@ -234,7 +237,7 @@ time.
 ledger (commit that on `develop` first, before branching, so state survives the branch
 dance). Set plan-name `<project-name>-m<n>`.
 
-**1. Plan.** Spawn the **`planner` agent** (`subagent_type: planner`). Prompt contains:
+**1. Plan.** Spawn the **`planner` agent** (`subagent_type: planner`, `run_in_background: false`). Prompt contains:
 the milestone's full section from the project plan (its `planner-context` is the goal's
 context), plan-name, artifacts-dir, and the instruction that the working branch is
 `milestone/<n>-<slug>` (already checked out — use it, create nothing). The planner
@@ -243,10 +246,10 @@ Verify: the three `<project-name>-m<n>-*.md` artifacts exist and are committed.
 
 **2. Implement.** Read the roadmap's phases. For each phase `k` in order:
 
-  1. Spawn the **`decomposer` agent** (`subagent_type: decomposer`): "decompose phase
+  1. Spawn the **`decomposer` agent** (`subagent_type: decomposer`, `run_in_background: false`): "decompose phase
      `k` of `<project-name>-m<n>`". Verify the step files and ledger step registry
      landed.
-  2. Spawn the **`supervisor` agent** (`subagent_type: supervisor`): "supervise phase
+  2. Spawn the **`supervisor` agent** (`subagent_type: supervisor`, `run_in_background: false`): "supervise phase
      `k` of `<project-name>-m<n>`". The supervisor runs its own `worker` agents,
      verifies, merges, and drives revisions internally — do not re-do its job. Verify
      the milestone ledger marks phase `k` complete and the phase's commits are on the

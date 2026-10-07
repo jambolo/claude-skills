@@ -14,7 +14,7 @@ Only `lead-developer` is a skill (`SKILL.md`): its plan operation interviews the
 | `supervisor` | agent | worker, decomposer (revision), planner (amendment) |
 | `worker` | agent | nothing (no `Agent` tool) |
 
-Callers spawn a stage with `subagent_type: <name>` and pass **no** `model`, `effort`, or `isolation` option. Every agent ends with `RESULT: done | needs-human | failed`; a nested `needs-human` is forwarded verbatim up the chain until `lead-developer` (or the person who @-mentioned the agent) relays it to the user.
+Callers spawn a stage with `subagent_type: <name>` and `run_in_background: false` (omitted only when the Agent tool does not list it — an unlisted parameter fails the call), and pass **no** `model`, `effort`, or `isolation` option. Every agent ends with `RESULT: done | needs-human | failed`; a nested `needs-human` is forwarded verbatim up the chain until `lead-developer` (or the person who @-mentioned the agent) relays it to the user.
 
 ## The pipeline
 

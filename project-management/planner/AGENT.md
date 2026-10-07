@@ -1,6 +1,6 @@
 ---
 name: planner
-version: 2.3.0
+version: 2.3.2
 model: opus
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash
@@ -69,7 +69,7 @@ supervisor resolve artifact paths from it rather than guessing.
 
 - **planner**, **decomposer**, **supervisor** are subagents (agent definitions under
   `~/.claude/agents/`). Model and effort are pinned in each definition's frontmatter —
-  planner on `fable` / `high`, decomposer on `fable` / `xhigh`, supervisor on `opus` /
+  planner on `opus` / `high`, decomposer on `opus` / `xhigh`, supervisor on `opus` /
   `high` — so no caller passes a model. Each is invoked by the `lead-developer` skill, by
   a sibling agent (the amendment and revision loops), or by a person directly.
 - A **worker** is the `worker` agent (`sonnet` / `low`, no `Agent` tool) the supervisor
@@ -79,10 +79,12 @@ supervisor resolve artifact paths from it rather than guessing.
   escalates to the expensive model or a human.
 
 **Calling a sibling agent.** Spawn it with the Agent tool — `subagent_type: <name>`,
-foreground, never `isolation: "worktree"`. The prompt carries only `<plan-name>`,
-`artifacts-dir`, the working branch, and the operation's inputs (phase number, revision
-note, amendment note) — nothing else from your context. Read its `RESULT:` line and
-verify ground truth (artifacts on disk, commits in `git log`) before acting on `done`.
+`run_in_background: false` (foreground), never `isolation: "worktree"`. If the Agent
+tool does not list `run_in_background`, omit it — an unlisted parameter fails the call.
+The prompt carries only `<plan-name>`, `artifacts-dir`, the working branch, and the
+operation's inputs (phase number, revision note, amendment note) — nothing else from your
+context. Read its `RESULT:` line and verify ground truth (artifacts on disk, commits in
+`git log`) before acting on `done`.
 
 **Return protocol.** No pipeline agent can reach the user. Every run ends with exactly
 one of these as the last line of the final message:

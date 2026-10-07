@@ -62,28 +62,28 @@
     },
     {
       "name": "lead-developer",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "kind": "skill",
       "path": "project-management/lead-developer",
       "family": "project-management"
     },
     {
       "name": "decomposer",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "kind": "agent",
       "path": "project-management/decomposer",
       "family": "project-management"
     },
     {
       "name": "planner",
-      "version": "2.3.0",
+      "version": "2.3.2",
       "kind": "agent",
       "path": "project-management/planner",
       "family": "project-management"
     },
     {
       "name": "supervisor",
-      "version": "2.0.3",
+      "version": "2.1.0",
       "kind": "agent",
       "path": "project-management/supervisor",
       "family": "project-management"
