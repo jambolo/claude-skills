@@ -1,6 +1,6 @@
 ---
 name: new-rust-project
-version: 1.0.0
+version: 1.0.1
 description: Scaffold a new Rust project with cargo — creates the directory via cargo new, then adds a comprehensive .gitignore, MIT license, README, CI/CD GitHub Actions workflows, and seeded git commits. Also finishes a partially set-up Rust project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new Rust or cargo project, or to complete/fill in the setup of an existing one.
 ---
 
@@ -37,6 +37,10 @@ is idempotent — before running a step, check whether its output already exists
   messages.
 
 ## Steps
+
+**Commit messages are exactly the messages given below.** Never append a
+`Co-Authored-By:` trailer (or any other attribution line), even if the
+environment's default commit guidance says to.
 
 Run these from the directory where the new project folder should live. Requires
 `cargo` and `git` on PATH.

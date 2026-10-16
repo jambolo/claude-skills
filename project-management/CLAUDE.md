@@ -18,13 +18,13 @@ Callers spawn a stage with `subagent_type: <name>` and `run_in_background: false
 
 ## The pipeline
 
-The **planner → decomposer → supervisor** pipeline executes a large goal with a fleet of cheap-model (Sonnet) worker subagents under expensive-model supervision. `planner` turns a goal into a `<plan-name>-brief.md`, phased `<plan-name>-roadmap.md`, and seeded `<plan-name>-ledger.md`; `decomposer` breaks one phase into atomic, parallelizable step files `<plan-name>-<id>.md`; `supervisor` launches a `worker` per step (parallel steps isolated in git worktrees the supervisor creates itself), verifies each against ground truth, merges passing work, and drives the failure → revision loop back through the decomposer. `worker` carries the per-step contract (path discipline, base assertion, honest acceptance, report format, one-commit rule) in its own definition, so the supervisor hands it only a step packet.
+The supervisor creates the git worktrees for parallel steps itself. `worker` carries the per-step contract (path discipline, base assertion, honest acceptance, report format, one-commit rule) in its own definition, so the supervisor hands it only a step packet.
 
 The three pipeline agents install independently and cooperate only through the shared Markdown artifacts keyed by `<plan-name>` — the **"Shared model" section is duplicated verbatim across all three AGENT.md files and must be kept in sync** when edited (bump all three). `worker` does not carry it; its contract must stay consistent with the "Worker report & commit protocol" paragraph inside it.
 
 ## The lead-developer stage
 
-`lead-developer` sits above the pipeline: its plan operation interviews the user and turns a project synopsis into a milestone-based `<project-name>-project-plan.md` plus a `<project-name>-project-ledger.md`; its execute operation executes each milestone on its own `milestone/<n>-<slug>` branch (from a pre-existing `develop`) by spawning `planner`, `decomposer`, and `supervisor` — each invocation a fresh agent, milestone `n` keyed by plan-name `<project-name>-m<n>` — then evaluates the milestone's Definition of Done itself, deletes non-retained artifacts (keeping brief + ledger for post-mortem), and squash-merges the branch into `develop`. It does not carry the pipeline's "Shared model" section and its edits do not require bumping the agents; any pipeline escalation an agent cannot resolve stops the run for human intervention.
+`lead-developer` does not carry the pipeline's "Shared model" section and its edits do not require bumping the agents; any pipeline escalation an agent cannot resolve stops the run for human intervention.
 
 ## Editing an agent
 

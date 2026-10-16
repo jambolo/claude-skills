@@ -1,8 +1,8 @@
 ---
 name: decomposer
-version: 2.3.0
+version: 2.4.0
 model: opus
-effort: xhigh
+effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash, Agent
 description: >
   Middle stage of the planner → decomposer → supervisor pipeline. Decomposes ONE
@@ -64,10 +64,10 @@ supervisor resolve artifact paths from it rather than guessing.
 
 - **planner**, **decomposer**, **supervisor** are subagents (agent definitions under
   `~/.claude/agents/`). Model and effort are pinned in each definition's frontmatter —
-  planner on `opus` / `high`, decomposer on `opus` / `xhigh`, supervisor on `opus` /
+  planner on `opus` / `high`, decomposer on `opus` / `high`, supervisor on `opus` /
   `high` — so no caller passes a model. Each is invoked by the `lead-developer` skill, by
   a sibling agent (the amendment and revision loops), or by a person directly.
-- A **worker** is the `worker` agent (`sonnet` / `low`, no `Agent` tool) the supervisor
+- A **worker** is the `worker` agent (`sonnet` / `medium`, no `Agent` tool) the supervisor
   launches for one step. It sees ONLY its step packet — none of the brief, roadmap, or
   sibling steps.
 - A step routed `judgment` (no clean deterministic answer), or one that fails repeatedly,

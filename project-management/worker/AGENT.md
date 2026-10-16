@@ -1,8 +1,8 @@
 ---
 name: worker
-version: 1.0.2
+version: 2.0.0
 model: sonnet
-effort: low
+effort: medium
 maxTurns: 80
 tools: Read, Write, Edit, Grep, Glob, Bash
 description: >
@@ -99,25 +99,36 @@ running in their own worktrees at the same time. Therefore:
    `git -C <worktree> diff --name-only <base>..HEAD` that only `files_in_scope` paths
    changed; if something else slipped in, that is a `fail` you report — not something you
    quietly revert with another commit.
+
+   **A hook that rewrites or rejects the report** (or any other file in `artifacts-dir`)
+   is a repo gate covering artifacts, not your defect to fix. Never re-stage the rewritten
+   file, never commit with `--no-verify`, never edit the hook's config, never retry the
+   commit. Leave the tree as it is and go straight to step 7 with `RESULT: needs-human`.
 7. **Return.** Final message: the report's `status` line, the list of changed paths, and
    as the last line exactly one of `RESULT: done` (report written and committed, whatever
-   its status), `RESULT: failed` (you could not even write and commit a report — say why).
+   its status), `RESULT: needs-human` (a hook rewrote or rejected an `artifacts-dir` file
+   in step 6 — preceded by the hook's id and its verbatim output), `RESULT: failed` (you
+   could not even write and commit a report for any other reason — say why).
 
 ## Hard limits
 
 - **One step, one commit.** A second commit, an amended commit, or an uncommitted tree at
-  return is a failed step.
+  return is a failed step — except the uncommitted tree a `needs-human` hook stop leaves.
 - **Scope is absolute.** Out-of-scope changes fail the step even when acceptance passes.
   Generated or incidental files (build outputs, lockfiles) outside scope are out of scope —
   don't commit them; report them.
 - **No exploration.** You are turn-limited. Read what `actions` and `context` point you at;
   do not survey the repo, read the ledger, or open sibling steps.
+- **You cannot reach the user.** Never stop to ask or check in: a question the packet
+  cannot answer is a step defect — record it under `deviations`, report `status: fail`,
+  commit, and return.
 - **No self-repair of the base, ever.** `missing-base` is a successful detection, not a
   failure to route around.
 - **Never format the report.** Never run a formatter or auto-fixer (Prettier, a lint
   `--fix`, a pre-commit rewrite) on the report or any other file in `artifacts-dir`: it
   holds verbatim output that must stay byte-exact. If `actions` run a formatter, pass it
-  only the non-report `files_in_scope` paths.
+  only the non-report `files_in_scope` paths. A pre-commit hook that touches them anyway:
+  see step 6.
 - **No subagents, no skills, no plan edits.** You have no `Agent` tool by design.
 - **Honest failure beats contrived success.** A truthful `fail` costs one revision; a gamed
   `pass` costs a revision plus the trust the pipeline runs on.

@@ -1,6 +1,6 @@
 ---
 name: lead-developer
-version: 2.2.0
+version: 2.3.0
 description: >
   Top stage of the project-management family, sitting above the planner →
   decomposer → supervisor pipeline. Performs the role of a lead developer: turns a
@@ -73,7 +73,7 @@ general-purpose subagent told to "act as" a stage:
 | Invocation | `subagent_type` | model / effort (pinned in the agent definition) |
 | --- | --- | --- |
 | plan a milestone; amendments | `planner` | opus / high |
-| decompose a phase | `decomposer` | opus / xhigh |
+| decompose a phase | `decomposer` | opus / high |
 | supervise a phase | `supervisor` | opus / high |
 
 Pass `run_in_background: false` on every Agent call — the tool otherwise launches in the
@@ -130,7 +130,9 @@ invent a requirement — a wrong assumption propagates into every milestone.
 
 Choose a kebab-case `<project-name>` and the `artifacts-dir` (`docs/` if the repo has
 one, else the repo root). Verify `develop` exists (see Branch topology) — if not, stop.
-State all three to the user.
+Check it out now (`git checkout develop`): section 5 reads and edits its files, and
+section 6 commits there. If the checkout is blocked by uncommitted changes, stop and
+reconcile with the user. State all three to the user.
 
 ### 3. Write the project plan
 
@@ -206,18 +208,28 @@ what makes a run resumable:
 ### 5. Exclude artifacts from formatter gates
 
 Project and pipeline artifacts hold byte-exact literals the pipeline compares literally,
-so no formatter or auto-fixer may touch them. Find every repo tool that formats, lints,
-or format-checks Markdown under `artifacts-dir` — e.g. Prettier (config file or
-`prettier` in `package.json`), markdownlint, dprint, a `.pre-commit-config.yaml` hook. For
-each whose ignore mechanism does not already cover them, add
-`<artifacts-dir>/<project-name>-*.md` (covers the project plan, project ledger, and every
-milestone's pipeline artifacts) to it — `.prettierignore`, `.markdownlintignore`, dprint
-`excludes`, pre-commit `exclude:` — matching the file's existing style. A tool with no
-ignore mechanism you recognize: ask the user. State the exclusions added to the user.
+so no formatter or auto-fixer may touch them. Find every repo tool on `develop` that
+formats, lints, or format-checks Markdown under `artifacts-dir` — e.g. Prettier (config
+file or `prettier` in `package.json`), markdownlint, dprint, a `.pre-commit-config.yaml`
+hook. For each whose ignore mechanism does not already cover `<project-name>-*.md` in
+`artifacts-dir` (the project plan, project ledger, and every milestone's pipeline
+artifacts), add an entry in the syntax that tool reads, matching the file's existing
+style. With `artifacts-dir` at the repo root, drop the `<artifacts-dir>/` prefix.
+
+| Tool | Where | Entry |
+| --- | --- | --- |
+| Prettier | `.prettierignore` | glob `<artifacts-dir>/<project-name>-*.md` |
+| markdownlint-cli2 (CLI, pre-commit hook, GitHub action, VS Code extension) | `ignores` in `.markdownlint-cli2.{jsonc,yaml,cjs,mjs}`; create `.markdownlint-cli2.jsonc` if none exists | glob `<artifacts-dir>/<project-name>-*.md` |
+| markdownlint-cli (legacy) | `.markdownlintignore` | glob `<artifacts-dir>/<project-name>-*.md` |
+| dprint | `excludes` in the dprint config | glob `<artifacts-dir>/<project-name>-*.md` |
+| pre-commit | top-level `exclude:` in `.pre-commit-config.yaml`; join an existing pattern with `\|` | Python regex `^<artifacts-dir>/<project-name>-.*\.md$` — never a glob |
+
+markdownlint-cli2 never reads `.markdownlintignore`. A tool with no ignore mechanism you
+recognize: ask the user. State the exclusions added to the user.
 
 ### 6. Commit and hand off
 
-Check out `develop`, commit both files there, plus any ignore file edited in section 5 —
+On `develop`, commit both files, plus any ignore file edited in section 5 —
 message `lead(<project-name>): project plan` — and tell the user the plan is ready and
 the next move is the execute operation.
 
@@ -240,7 +252,8 @@ dance). Set plan-name `<project-name>-m<n>`.
 **1. Plan.** Spawn the **`planner` agent** (`subagent_type: planner`, `run_in_background: false`). Prompt contains:
 the milestone's full section from the project plan (its `planner-context` is the goal's
 context), plan-name, artifacts-dir, and the instruction that the working branch is
-`milestone/<n>-<slug>` (already checked out — use it, create nothing). The planner
+`milestone/<n>-<slug>` (already checked out — use it, create nothing), and the statement
+"artifacts are already excluded from formatter gates" (section 5 did it). The planner
 produces and commits brief + roadmap + milestone ledger on the milestone branch.
 Verify: the three `<project-name>-m<n>-*.md` artifacts exist and are committed.
 

@@ -1,6 +1,6 @@
 # 0006. Installed items the manifest does not own are reported, never deleted — except a superseded kind-change leftover
 
-**Status:** Accepted
+**Status:** Superseded by [0008](0008-unowned-installs-are-ignored-except-superseded.md)
 **Date:** 2026-08-21
 **Commits:** 7f7a7ca, 5cde06f
 

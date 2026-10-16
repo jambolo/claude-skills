@@ -1,6 +1,6 @@
 ---
 name: new-tauri-project
-version: 1.0.0
+version: 1.0.1
 description: Scaffold a new Tauri desktop application — a cargo workspace with a UI-agnostic Rust compute-core crate (src-core) and a thin Tauri shell crate (src-tauri), plus a TypeScript + Vite + Vitest frontend (src) managed by pnpm, with ESLint, Prettier, MIT license, .gitignore, README, CI/CD GitHub Actions workflows, and seeded git commits. Also finishes a partially set-up Tauri project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new Tauri app, desktop app, or Rust + TypeScript GUI project, or to complete/fill in the setup of an existing one. For a pure Rust project (no UI) use new-rust-project; for a pure TypeScript/Node project use new-typescript-project.
 ---
 
@@ -85,6 +85,10 @@ exists:
   messages.
 
 ## Steps
+
+**Commit messages are exactly the messages given below.** Never append a
+`Co-Authored-By:` trailer (or any other attribution line), even if the
+environment's default commit guidance says to.
 
 Run these from the directory where the new project folder should live.
 Requires `pnpm`, `node`, `cargo`, and `git` on PATH. On Windows the Rust

@@ -26,13 +26,7 @@ After changing a skill's or agent's content, bump its `version:` (patch = wordin
 
 ## Skill families
 
-Each family has its own `CLAUDE.md` with the detail; it loads when you work under that folder.
-
-- **`advent-of-code/`** — the language-agnostic AoC skill. See `advent-of-code/CLAUDE.md`.
-- **`finance/`** — the `treasury-prices` skill, a Python CLI over TreasuryDirect FedInvest and TA_WS. The only family with a test suite: `pytest.ini`, `requirements-dev.txt`, and `tests/` sit at the family level, deliberately outside the installed leaf. See `finance/CLAUDE.md`.
-- **`new-project/`** — the per-language scaffolders, which also bootstrap `advent-of-code` scaffolds. See `new-project/CLAUDE.md`: its **"Scaffolder conventions"** section is the shared contract, and `advent-of-code`'s inline scaffold fallback follows it too.
-- **`project-management/`** — the `lead-developer` skill over the planner → decomposer → supervisor pipeline, whose stages (plus the supervisor's `worker`) are **agents**, not skills. See `project-management/CLAUDE.md`.
-- **`skill-management/`** — version bookkeeping: `skill-version-check` (this repo's skills/agents) and `script-version-check` (external bash-script repos → `~/bin`). See `skill-management/CLAUDE.md`.
+Each category folder has its own `CLAUDE.md` with the family detail; it loads when you work under that folder. Only `finance/` has a test suite (see `finance/CLAUDE.md`).
 
 ## Validating a change
 

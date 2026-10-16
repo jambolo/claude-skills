@@ -1,7 +1,7 @@
 ---
 name: treasury-prices
+version: 1.0.1
 description: Look up U.S. Treasury historical prices (buy, sell, end-of-day clean prices per 100 face value) for any CUSIP and date, and compute the full invoice value of a TIPS — inflation-adjusted principal, accrued interest, and dirty price. Use when the user asks about Treasury security prices, a CUSIP's quote on a date, TIPS inflation adjustment, CPI index ratios, or what a Treasury bill/note/bond/TIPS position is worth. Data comes from TreasuryDirect FedInvest and the TA_WS API.
-version: 1.0.0
 ---
 
 # Treasury Prices

@@ -1,6 +1,6 @@
 ---
 name: new-typescript-project
-version: 1.0.0
+version: 1.0.1
 description: Scaffold a new TypeScript project with pnpm — creates the directory, then adds a strict tsconfig, ESLint, Prettier, Vitest, TypeDoc, MIT license, .gitignore, README, CI/CD GitHub Actions workflows, and seeded git commits. Also finishes a partially set-up TypeScript project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new TypeScript, TS, or pnpm project, or to complete/fill in the setup of an existing one.
 ---
 
@@ -42,6 +42,10 @@ is idempotent — before running a step, check whether its output already exists
   messages.
 
 ## Steps
+
+**Commit messages are exactly the messages given below.** Never append a
+`Co-Authored-By:` trailer (or any other attribution line), even if the
+environment's default commit guidance says to.
 
 Run these from the directory where the new project folder should live. Requires
 `pnpm`, `node`, and `git` on PATH.

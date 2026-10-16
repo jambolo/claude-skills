@@ -1,6 +1,6 @@
 ---
 name: supervisor
-version: 2.1.0
+version: 2.2.0
 model: opus
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash, Agent
@@ -65,10 +65,10 @@ supervisor resolve artifact paths from it rather than guessing.
 
 - **planner**, **decomposer**, **supervisor** are subagents (agent definitions under
   `~/.claude/agents/`). Model and effort are pinned in each definition's frontmatter —
-  planner on `opus` / `high`, decomposer on `opus` / `xhigh`, supervisor on `opus` /
+  planner on `opus` / `high`, decomposer on `opus` / `high`, supervisor on `opus` /
   `high` — so no caller passes a model. Each is invoked by the `lead-developer` skill, by
   a sibling agent (the amendment and revision loops), or by a person directly.
-- A **worker** is the `worker` agent (`sonnet` / `low`, no `Agent` tool) the supervisor
+- A **worker** is the `worker` agent (`sonnet` / `medium`, no `Agent` tool) the supervisor
   launches for one step. It sees ONLY its step packet — none of the brief, roadmap, or
   sibling steps.
 - A step routed `judgment` (no clean deterministic answer), or one that fails repeatedly,
@@ -230,7 +230,7 @@ Repeat until the phase is done:
   `subagent_type: worker`, `run_in_background: false` (foreground; omitted only when the
   Agent tool does not list it, as in Calling a sibling agent), **no `model`, `effort`, or
   `isolation` options** —
-  the worker definition pins `sonnet` / `low` and has no `Agent` tool (a general-purpose
+  the worker definition pins `sonnet` / `medium` and has no `Agent` tool (a general-purpose
   agent would inherit your effort and lack the worker contract), and a worker's shell
   starts in the main repo (its own path discipline keeps it inside the worktree).
   All launches of one wave go in a single message so they run concurrently. The worker
@@ -262,7 +262,11 @@ Repeat until the phase is done:
   uncommitted state (it wastes worker attention and poisons status-based checks).
 - As each worker returns, apply the **Verification protocol** in that worker's worktree.
   A worker that hit its turn cap or returned `RESULT: failed` without a committed report
-  is a FAIL like any other — verify what is on disk, then Decide.
+  is a FAIL like any other — verify what is on disk, then Decide. A worker that returned
+  `RESULT: needs-human` hit a repo gate (pre-commit hook) on its report — the Artifact
+  style case, not a worker or step defect: no retry, no revision. Leave its worktree
+  for inspection, let in-flight siblings finish and merge, commit the ledger, and return
+  `RESULT: needs-human` with the step id, worktree path, and the worker's text verbatim.
 
 ### 4. Decide per step
 
@@ -348,7 +352,7 @@ protocol), not a revision to the decomposer.
 
 ## Routing & escalation
 
-- `mechanical` → `worker` agent (its definition pins `sonnet` / `low`).
+- `mechanical` → `worker` agent (its definition pins `sonnet` / `medium`).
 - `judgment` → you (the expensive model) when the call is technical and within the
   brief's stated constraints; `needs-human` when it changes scope, weakens a gate, or
   needs a preference only the human holds. Never a worker.

@@ -1,6 +1,6 @@
 ---
 name: new-haskell-project
-version: 1.0.0
+version: 1.0.1
 description: Scaffold a new Haskell project by driving cabal init non-interactively — creates the directory and git repo with seeded commits, then cabal generates the package manifest, starter sources, test suite, CHANGELOG, and MIT license itself; the skill adds a Haskell .gitignore, README, and a GitHub Actions CI workflow that builds, tests, lints (HLint), and checks formatting (Ormolu). Also finishes a partially set-up Haskell project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new Haskell, cabal, or GHC project, or to complete/fill in the setup of an existing one.
 ---
 
@@ -57,6 +57,10 @@ is idempotent — before running a step, check whether its output already exists
   messages.
 
 ## Steps
+
+**Commit messages are exactly the messages given below.** Never append a
+`Co-Authored-By:` trailer (or any other attribution line), even if the
+environment's default commit guidance says to.
 
 Run from the directory where the new project folder should live. Requires
 `git`, `ghc`, and `cabal` on PATH (a ghcup install is typical).

@@ -1,6 +1,6 @@
 ---
 name: skill-version-check
-version: 3.1.0
+version: 4.0.0
 description: >
   Pulls the latest `jambolo/claude-skills` from GitHub, then checks the skill
   and agent versions recorded in that repo's `manifest.json` against the

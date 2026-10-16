@@ -1,6 +1,6 @@
 ---
 name: advent-of-code
-version: 1.1.0
+version: 1.1.1
 description: >
   Manages Advent of Code projects across any language. Use this skill whenever
   the user mentions Advent of Code, AoC, puzzle solutions, or working on a
@@ -229,7 +229,7 @@ overrides.
 | --- | --- | --- |
 | Rust | `new-rust-project` | Project name = AoC repo name (e.g., `advent-of-code-2024`). AoC repos are binary-only with no Pages, Codecov, or releases: skip `cd.yml` and remove the `docs` and `coverage` CI jobs unless the user asks for them. |
 | C++ | `new-cpp-project` | Use the **executable** variant. |
-| TypeScript | `new-typescript-project` | Operates in the current directory — `mkdir` the project folder and `cd` in first. Pass through the user's npm/pnpm choice (ask if unstated, as that skill requires). |
+| TypeScript | `new-typescript-project` | Creates the project folder itself and always uses pnpm — invoke it from the parent directory. |
 | Julia | `new-julia-project` | Package name must be a valid Julia identifier (e.g., `AdventOfCode2024`). |
 | Haskell | `new-haskell-project` | Hyphenated names are fine (`advent-of-code-2024`). Use the default **library + executable** kind — days become further executables over the shared library. |
 
