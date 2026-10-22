@@ -32,3 +32,4 @@ Each category folder has its own `CLAUDE.md` with the family detail; it loads wh
 
 - End-to-end: copy the skill folder to `~/.claude/skills/<name>/` (or the agent's `AGENT.md` to `~/.claude/agents/<name>.md`, then start a new session), invoke it in an empty scratch directory, and inspect the resulting git log + tree.
 - Version/manifest state: `pwsh skill-management/skill-version-check/scripts/Compare-SkillVersions.ps1 -RepoRoot .` (or `bash skill-management/skill-version-check/scripts/compare-skill-versions.sh --repo-root .`) — the "Manifest drift" section must be empty.
+- Pipeline agents only: `bash project-management/scripts/check-shared-model.sh` must exit 0 (the duplicated "Shared model" sections are identical; worker and worker-lite bodies are identical), and `bash project-management/pipeline-tools/scripts/selftest.sh` must report 0 failed.
