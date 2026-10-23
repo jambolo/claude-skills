@@ -276,6 +276,36 @@ expect_out "bench-run --dry-run prints the command" "COMMAND (per phase" bash "$
 expect_out "bench-run --dry-run lists the sets" "SETS supervisor.model=sonnet" bash "$here/bench-run.sh" --config base --set supervisor.model=sonnet --dry-run
 expect_exit "bench-run refuses to run without --yes" 2 bash "$here/bench-run.sh" --config base
 expect_exit "bench-run requires --config" 2 bash "$here/bench-run.sh" --dry-run
+expect_out "bench-run --mode lead prints the lead prompt" "Act as lead developer" bash "$here/bench-run.sh" --config lead --mode lead --dry-run
+expect_out "bench-run --mode lead defaults to the project fixture" "fixture=project" bash "$here/bench-run.sh" --config lead --mode lead --dry-run
+expect_out "bench-run --mode single disallows Agent" '--disallowedTools "Agent"' bash "$here/bench-run.sh" --config single --mode single --dry-run
+expect_out "bench-run --mode single names the checks file" "DOD " bash "$here/bench-run.sh" --config single --mode single --dry-run
+expect_out "bench-run --driver-effort sets the env" "ENV CLAUDE_CODE_EFFORT_LEVEL=medium" bash "$here/bench-run.sh" --config single --mode single --driver-model opus --driver-effort medium --dry-run
+expect_exit "bench-run --mode single rejects --set" 2 bash "$here/bench-run.sh" --config single --mode single --set supervisor.model=sonnet --dry-run
+expect_out "bench-run --mode single on mid works from the brief and roadmap" "docs/<plan>-brief.md and docs/<plan>-roadmap.md" bash "$here/bench-run.sh" --config single --mode single --fixture mid --dry-run
+expect_out "bench-run --mode single on mid is judged by the brief's dod block" "DOD docs/<plan>-brief.md" bash "$here/bench-run.sh" --config single --mode single --fixture mid --dry-run
+expect_out "bench-run --mode single on project uses the checks file" "project-dod.txt" bash "$here/bench-run.sh" --config single --mode single --dry-run
+expect_exit "bench-run --mode supervise rejects the project fixture" 2 bash "$here/bench-run.sh" --config base --fixture project --dry-run
+expect_exit "bench-run rejects an unknown mode" 2 bash "$here/bench-run.sh" --config x --mode nope --dry-run
+
+echo "== project DoD checks file and lead-mode helpers"
+expect_out "project-dod.txt parses: five records" "FAIL add appends two notes" bash "$here/dod-run.sh" --checks "$here/../fixture/project-dod.txt" --cwd "$tmp/proj"
+expect_exit "project-dod.txt fails on the empty fixture" 1 bash "$here/dod-run.sh" --checks "$here/../fixture/project-dod.txt" --cwd "$tmp/proj"
+cat >"$tmp/pl.md" <<'EOF'
+# notes — Project Ledger
+
+## Milestones
+
+| # | Name | Status  | Branch | Merge commit | Notes |
+| --: | --- | --- | --- | --- | --- |
+| 1 | add-list | done | milestone/1-add-list (deleted) | 325b13e | tag archive/notes-m1 |
+| 2 | search-docs | in-progress | milestone/2-search-docs | | |
+
+## Events
+EOF
+[[ "$(milestones_done "$tmp/pl.md")" == "1|2" ]] && ok "milestones_done counts 1 of 2" || bad "milestones_done" "$(milestones_done "$tmp/pl.md")"
+[[ "$(sum_ledgers "$repo/$ledger" "$repo/$ledger")" == 8\|8\|* ]] && ok "sum_ledgers adds two ledgers" || bad "sum_ledgers" "$(sum_ledgers "$repo/$ledger" "$repo/$ledger")"
+[[ "$(models_total_tokens 'claude-opus-5-5:in=100,cr=900,out=50,cost=0.1;claude-haiku-5-5:in=10,cr=0,out=5,cost=0.0001')" == "1065" ]] && ok "models_total_tokens sums in+cr+out" || bad "models_total_tokens" "$(models_total_tokens 'a:in=1,cr=2,out=3,cost=0')"
 cat >"$tmp/results.tsv" <<'EOF'
 timestamp	config	fixture	repeat	sets	phases_done	phases	dod	cost_usd	duration_s	turns	steps_done	steps_total	tokens_sum	tool_uses_sum	wall_s_sum	retries_sum	revisions	worktrees_left	branches_left	models	path
 2026-10-22T00:00:00Z	baseline	smoke	1	none	2	2	PASS	1.0000	100	10	4	4	4000	20	80	0	0	0	0	m

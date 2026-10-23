@@ -112,6 +112,43 @@ PY
     echo "${cost}|||||raw-json-only"
 }
 
+# milestones_done <project-ledger.md>
+# Prints: done|total, counted from the Milestones table (rows whose first cell is a number).
+milestones_done() {
+    awk '
+        /^## Milestones/ { sec = 1; next }
+        /^## / { sec = 0 }
+        sec && /^\|/ {
+            n = split($0, c, "|"); num = c[2]; gsub(/^[ \t]+|[ \t]+$/, "", num)
+            if (num !~ /^[0-9]+$/) next
+            total++
+            st = c[4]; gsub(/^[ \t]+|[ \t]+$/, "", st); if (st == "done") done++
+        }
+        END { printf "%d|%d\n", done, total }
+    ' "$1"
+}
+
+# sum_ledgers <ledger.md>...
+# Sums ledger_stats over several milestone ledgers; same seven fields.
+sum_ledgers() {
+    local f a b c d e g h
+    local done=0 total=0 tok=0 tu=0 wall=0 ret=0 rev=0
+    for f in "$@"; do
+        [[ -f "$f" ]] || continue
+        IFS='|' read -r a b c d e g h <<<"$(ledger_stats "$f")"
+        done=$((done + a)); total=$((total + b)); tok=$((tok + c)); tu=$((tu + d))
+        wall=$((wall + e)); ret=$((ret + g)); rev=$((rev + h))
+    done
+    printf '%d|%d|%d|%d|%d|%d|%d\n' "$done" "$total" "$tok" "$tu" "$wall" "$ret" "$rev"
+}
+
+# models_total_tokens <models-string>
+# Sums in+cr+out across a models string from extract_run ("m:in=1,cr=2,out=3,cost=x;...").
+models_total_tokens() {
+    printf '%s' "$1" | tr ';' '\n' | sed -n 's/.*:in=\([0-9]*\),cr=\([0-9]*\),out=\([0-9]*\),.*/\1 \2 \3/p' |
+        awk '{ s += $1 + $2 + $3 } END { printf "%d\n", s }'
+}
+
 # ledger_stats <ledger.md>
 # Prints: steps_done|steps_total|tokens_sum|tool_uses_sum|wall_s_sum|retries_sum|revisions
 ledger_stats() {

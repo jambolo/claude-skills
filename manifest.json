@@ -104,7 +104,7 @@
     },
     {
       "name": "pipeline-tools",
-      "version": "1.2.0",
+      "version": "1.4.0",
       "kind": "skill",
       "path": "project-management/pipeline-tools",
       "family": "project-management"

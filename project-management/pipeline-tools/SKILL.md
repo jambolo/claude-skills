@@ -1,6 +1,6 @@
 ---
 name: pipeline-tools
-version: 1.2.0
+version: 1.4.0
 description: >
   Scripts, benchmark fixtures, and the headless benchmark harness for the
   project-management pipeline (planner → decomposer → supervisor → worker). The
@@ -8,8 +8,9 @@ description: >
   `~/.claude/skills/pipeline-tools/scripts/`, so install this skill wherever those
   agents run. Invoke it directly only when the user asks to "run the pipeline smoke
   test", "make the pipeline fixture", "self-test the pipeline scripts", "check the
-  pipeline scripts", "benchmark the pipeline", "compare pipeline configurations", or
-  "exercise the lead developer end to end".
+  pipeline scripts", "benchmark the pipeline", "compare pipeline configurations",
+  "exercise the lead developer end to end", or "compare the pipeline with a single
+  session".
   Not for planning or executing real work (that is `lead-developer`), and not a
   general git-worktree or test-runner helper.
 ---
@@ -31,7 +32,7 @@ or `VERDICT FAIL`), 2 on usage or an unparsable input. `$S` below is
 | `dod-run.sh --file <md> [--heading <text>] [--cwd <dir>]` or `--checks <file>` | supervisor, lead-developer | Runs the `dod` block after the first heading line containing `<text>`. | `PASS`, `FAIL`, or `MANUAL` per item; `DOD PASS n/n` or `DOD FAIL k of n failed` |
 | `find-formatter-gates.sh --repo <r> --artifacts-dir <d or .> --pattern <glob>` | planner, lead-developer | Detects Prettier, markdownlint-cli2, markdownlint-cli, dprint, and pre-commit; reports whether the artifacts are already ignored and the exact entry to add. | `GATE <tool> config=... ignore=... covered=yes or no entry=...`, or `NONE` |
 | `make-fixture.sh [--fixture smoke or smoke-undecomposed or mid or project] <dir>` | this skill | Creates a fixture repository (see Fixtures). | `FIXTURE <path>`, `KIND`, `PLAN`, `BRANCH`, `PHASES <n>`, `STARTING_COMMIT <sha>`, the procedure |
-| `bench-run.sh --config <label> [--fixture kind] [--set agent.field=value]... [--repeat n] [--yes]` | this skill | Runs every phase of a fixture headless under one configuration and appends a row per run to a TSV (see Benchmark). | `RUN ...` per phase, `ROW ...` per run, `RESULTS <tsv>` |
+| `bench-run.sh --config <label> [--mode supervise or lead or single] [--fixture kind] [--set agent.field=value]... [--repeat n] [--driver-model m] [--driver-effort e] [--yes]` | this skill | Runs a fixture headless under one configuration and appends a row per run to a TSV: per-phase supervisor runs, a headless lead-developer run, or a single session with no subagents (see Benchmark and Pipeline versus single session). | `RUN ...` per run, `ROW ...` per run, `RESULTS <tsv>` |
 | `bench-summary.sh [<tsv>]` | this skill | Per-configuration means: cost, duration, DoD pass rate, phases, retries, revisions, tokens. | one line per config, then the decision rule |
 | `selftest.sh` | this skill | Exercises every script above with a bash-simulated worker; no model, no spend. | `ok` or `FAIL` per assertion; `selftest: n passed, m failed` |
 
@@ -155,3 +156,56 @@ and mean revisions are not worse than the baseline's beyond the noise floor — 
 between repeated baseline runs. Two or three repeats per configuration per fixture. A
 configuration that passes is applied by editing the agent's frontmatter pin (a minor
 bump) and recording the benchmark rows in the commit message.
+
+### Pipeline versus single session (headless, spends money)
+
+The review's X9 control: the same project built by one session with no subagents,
+judged by the same checks. Both arms use the `project` fixture and
+`fixture/project-dod.txt` (the synopsis's five Definition of Done items as a `dod`
+checks file), so `dod` means the same thing in every row.
+
+```bash
+S=~/.claude/skills/pipeline-tools/scripts
+bash $S/bench-run.sh --config lead-sonnet --mode lead --repeat 2 --yes
+bash $S/bench-run.sh --config single-sonnet --mode single --driver-model sonnet --repeat 2 --yes
+bash $S/bench-run.sh --config single-opus --mode single --driver-model opus --repeat 2 --yes
+bash $S/bench-run.sh --config single-opus-medium --mode single --driver-model opus --driver-effort medium --repeat 2 --yes
+bash $S/bench-summary.sh
+```
+
+- `--mode lead` runs the `lead-developer` skill from `SYNOPSIS.md` with the interview
+  suppressed (`--permission-prompts none` removes the question tool; the prompt tells it
+  to choose the simplest option where the synopsis is silent). `--driver-model` is the
+  lead developer's own model (default `sonnet`); the pipeline agents keep their pins
+  unless `--set` overrides them. The row's phases are milestones from the project
+  ledger; steps, tool uses, wall time, retries, and revisions are summed over the
+  milestone ledgers (workers only); tokens are the session's `modelUsage` total,
+  subagents included.
+- `--mode single` runs one session with the Agent tool disallowed, on `--driver-model`
+  and `--driver-effort` (`CLAUDE_CODE_EFFORT_LEVEL`). Phases is 1 and counts as done when
+  the run exits cleanly; steps are the commits it made; tokens are its `modelUsage`
+  total. On a plan fixture (`--fixture mid` or `smoke`) the session implements the
+  committed brief and roadmap instead of `SYNOPSIS.md` and is judged by the brief's
+  project `dod` block — the same check supervise mode runs — so its rows compare
+  directly with the pipeline's rows on that fixture.
+- Compare cost per run and the `dod` column first, then duration, then how the single
+  session verified its work (its `bench/run.json` result text lists the checks it ran).
+  Human interventions are zero in both arms by construction; an interactive `/plan` run
+  adds at least the plan approval.
+
+The pipeline loses on the `notes` fixture (measured 2026-10-23: 3.90 USD against 0.15
+for a Sonnet session and 0.38 for Opus, all passing; see `benchmarks/`): its fixed
+overhead per milestone dwarfs six small steps. The informative result is the crossover.
+Measure it on the `mid` fixture, where the adopted pipeline costs about 1.64 USD and
+605 s for the same plan:
+
+```bash
+S=~/.claude/skills/pipeline-tools/scripts
+bash $S/bench-run.sh --config single-sonnet-mid --mode single --fixture mid --driver-model sonnet --repeat 2 --yes
+bash $S/bench-run.sh --config single-opus-mid --mode single --fixture mid --driver-model opus --driver-effort medium --repeat 2 --yes
+bash $S/bench-summary.sh
+```
+
+Then on one real milestone of your own. Compare `dod` first, then cost, and read the
+single session's `bench/run.json` result text for how much of its own verification it
+skipped.

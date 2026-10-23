@@ -1,0 +1,15 @@
+# add appends two notes
+cmd: export NOTES_FILE="$(mktemp)"; bash src/add.sh "buy milk"; bash src/add.sh "call Bob"; wc -l < "$NOTES_FILE" | tr -d ' '
+expect: 2
+# list numbers notes
+cmd: export NOTES_FILE="$(mktemp)"; bash src/add.sh "buy milk"; bash src/add.sh "call Bob"; bash src/list.sh | tr '\n' '|'
+expect: 1: buy milk|2: call Bob|
+# search is case-insensitive
+cmd: export NOTES_FILE="$(mktemp)"; bash src/add.sh "buy milk"; bash src/add.sh "call Bob"; bash src/search.sh bob
+expect: 2: call Bob
+# test runner passes
+cmd: bash test/run.sh
+expect: ok
+# README has one Usage section
+cmd: grep -c '^## Usage' README.md
+expect: 1
