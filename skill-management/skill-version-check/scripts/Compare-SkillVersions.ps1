@@ -23,8 +23,9 @@ missing or unrecognized kind is an error. The kind selects the layout:
 
 Also reports manifest drift (manifest version != repo frontmatter version) and
 superseded leftovers: an installed skill folder whose name the manifest now
-lists as an agent, or vice versa. Installed skills/agents the manifest does not
-own at all are ignored.
+lists as an agent, or vice versa, and removed leftovers: an installed skill or
+agent the manifest's `removed` list marks as obsolete. Installed skills/agents
+the manifest does not own at all are ignored.
 
 .PARAMETER RepoRoot
 Root of the claude-skills repo (the folder holding manifest.json).
@@ -132,16 +133,26 @@ $rows = foreach ($e in $entries) {
     }
 }
 
+$removed = @()
+if ($manifest.PSObject.Properties['removed']) { $removed = @($manifest.removed) }
+foreach ($r in $removed) {
+    if ([string]$r.kind -notin 'skill', 'agent') {
+        throw "Removed entry '$($r.name)' has kind '$($r.kind)'; every removed entry must declare kind as 'skill' or 'agent'."
+    }
+}
+$removedSkills = @($removed | Where-Object { $_.kind -eq 'skill' } | ForEach-Object { $_.name })
+$removedAgents = @($removed | Where-Object { $_.kind -eq 'agent' } | ForEach-Object { $_.name })
+
 $knownSkills = @($rows | Where-Object { $_.Kind -eq 'skill' } | ForEach-Object { $_.Name })
 $knownAgents = @($rows | Where-Object { $_.Kind -eq 'agent' } | ForEach-Object { $_.Name })
 $orphans = @()
 if (Test-Path -LiteralPath $SkillInstallRoot) {
     $orphans += @(Get-ChildItem -LiteralPath $SkillInstallRoot -Directory |
-        Where-Object { $knownSkills -notcontains $_.Name -and $knownAgents -contains $_.Name } |
+        Where-Object { $knownSkills -notcontains $_.Name -and ($knownAgents -contains $_.Name -or $removedSkills -contains $_.Name) } |
         ForEach-Object {
             [pscustomobject]@{
                 Name    = $_.Name
-                Kind    = 'skill (superseded by agent)'
+                Kind    = if ($knownAgents -contains $_.Name) { 'skill (superseded by agent)' } else { 'skill (removed)' }
                 Local   = (Get-FrontmatterField -Path (Join-Path $_.FullName 'SKILL.md') -Field 'version')
                 Path    = $_.FullName
             }
@@ -149,11 +160,11 @@ if (Test-Path -LiteralPath $SkillInstallRoot) {
 }
 if (Test-Path -LiteralPath $AgentInstallRoot) {
     $orphans += @(Get-ChildItem -LiteralPath $AgentInstallRoot -File -Filter '*.md' |
-        Where-Object { $knownAgents -notcontains $_.BaseName -and $knownSkills -contains $_.BaseName } |
+        Where-Object { $knownAgents -notcontains $_.BaseName -and ($knownSkills -contains $_.BaseName -or $removedAgents -contains $_.BaseName) } |
         ForEach-Object {
             [pscustomobject]@{
                 Name    = $_.BaseName
-                Kind    = 'agent (superseded by skill)'
+                Kind    = if ($knownSkills -contains $_.BaseName) { 'agent (superseded by skill)' } else { 'agent (removed)' }
                 Local   = (Get-FrontmatterField -Path $_.FullName -Field 'version')
                 Path    = $_.FullName
             }
@@ -184,7 +195,7 @@ if ($drifted.Count -gt 0) {
 }
 
 if ($orphans.Count -gt 0) {
-    Write-Output 'Superseded leftovers (installed under the old kind):'
+    Write-Output 'Leftovers (superseded by the other kind, or removed from the repo):'
     $orphans | Format-Table Name, Kind, Local, Path -AutoSize | Out-String -Width 200 | Write-Output
 }
 

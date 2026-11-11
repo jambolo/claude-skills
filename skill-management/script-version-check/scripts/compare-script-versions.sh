@@ -23,9 +23,10 @@
 # A script's version is the first line matching `# version: <value>`
 # (case-insensitive `version`) within the first 15 lines of the file.
 #
-# Also reports manifest drift (manifest version != repo header version). The
-# install root is not owned by the repo, so unlike compare-skill-versions.sh
-# there is no "installed but not in manifest" section.
+# Also reports manifest drift (manifest version != repo header version) and
+# removed leftovers: a file installed under a name the manifest's optional
+# `removed` array marks as obsolete. The install root is not owned by the repo,
+# so nothing else installed there is ever reported.
 #
 # Usage:
 #   compare-script-versions.sh [--repo-root <path>] [--install-root <path>] [--json]
@@ -45,7 +46,7 @@ json=0
 die() { printf '%s\n' "$*" >&2; exit 1; }
 
 usage() {
-    sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,39p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [ $# -gt 0 ]; do
@@ -174,15 +175,53 @@ read_manifest() {
     fi
 }
 
+# Emits one TAB-separated `name<TAB>kind` line per tombstone in the optional
+# top-level "removed" array. Absent array means nothing was removed.
+read_removed() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -r '(.removed // [])[] | [.name, (.kind // "")] | @tsv' "$manifest_path"
+    else
+        awk '
+            function field(obj, key,   re, s) {
+                re = "\"" key "\"[ \t\r\n]*:[ \t\r\n]*\"[^\"]*\""
+                if (!match(obj, re)) return ""
+                s = substr(obj, RSTART, RLENGTH)
+                sub(/^[^:]*:[ \t\r\n]*"/, "", s)
+                sub(/"$/, "", s)
+                return s
+            }
+            { data = data $0 "\n" }
+            END {
+                i = index(data, "\"removed\"")
+                if (i == 0) exit 0
+                rest = substr(data, i)
+                j = index(rest, "[")
+                if (j == 0) exit 0
+                rest = substr(rest, j)
+                k = index(rest, "]")
+                if (k > 0) rest = substr(rest, 1, k)
+                while (match(rest, /\{[^{}]*\}/)) {
+                    obj = substr(rest, RSTART, RLENGTH)
+                    rest = substr(rest, RSTART + RLENGTH)
+                    name = field(obj, "name")
+                    if (name != "") printf "%s\t%s\n", name, field(obj, "kind")
+                }
+            }
+        ' "$manifest_path"
+    fi
+}
+
 entries_tsv="$(read_manifest)"
 [ -n "$entries_tsv" ] || die "No entries found in $manifest_path (manifestVersion 1 expects an 'entries' array)."
 
 # Rows, TAB-separated: name, kind, manifest, repo, local, status, drift, repoPath, localPath
 rows=""
+known=""
 while IFS=$'\t' read -r name manifest_version rel_path kind; do
     [ -n "$name" ] || continue
     [ "$kind" = "script" ] || die "Manifest entry '$name' has kind '$kind'; every entry must declare kind as 'script'."
 
+    known="${known}${name}"$'\n'
     repo_file="$repo_root/$rel_path"
     local_file="$install_root/$name"
 
@@ -203,6 +242,17 @@ while IFS=$'\t' read -r name manifest_version rel_path kind; do
     rows="${rows}${name}"$'\t'"${kind}"$'\t'"${manifest_version}"$'\t'"${repo_version:-(none)}"$'\t'"${local_version:-(none)}"$'\t'"${status}"$'\t'"${drift}"$'\t'"${repo_file}"$'\t'"${local_file}"$'\n'
 done <<< "$entries_tsv"
 
+# Leftovers, TAB-separated: name, local version, path. Only a regular file at
+# <install-root>/<name> for a tombstoned name that is not a live entry again.
+leftovers=""
+while IFS=$'\t' read -r name kind; do
+    [ -n "$name" ] || continue
+    [ "$kind" = "script" ] || die "Removed entry '$name' has kind '$kind'; every removed entry must declare kind as 'script'."
+    if printf '%s' "$known" | grep -Fxq "$name"; then continue; fi
+    [ -f "$install_root/$name" ] || continue
+    leftovers="${leftovers}${name}"$'\t'"$(header_version "$install_root/$name")"$'\t'"${install_root}/${name}"$'\n'
+done <<< "$(read_removed)"
+
 if [ "$json" -eq 1 ]; then
     printf '{\n'
     printf '  "repoRoot": "%s",\n' "$(json_escape "$repo_root")"
@@ -218,6 +268,20 @@ if [ "$json" -eq 1 ]; then
             "$(json_escape "$lver")" "$(json_escape "$status")" "$drift" \
             "$(json_escape "$repo_path")" "$(json_escape "$local_path")"
     done <<< "$rows"
+    [ "$first" -eq 1 ] || printf '\n'
+    printf '  ],\n'
+    printf '  "orphans": [\n'
+    first=1
+    if [ -n "$leftovers" ]; then
+        while IFS=$'\t' read -r name lver opath; do
+            [ -n "$name" ] || continue
+            [ "$first" -eq 1 ] || printf ',\n'
+            first=0
+            if [ -n "$lver" ]; then ljson="\"$(json_escape "$lver")\""; else ljson='null'; fi
+            printf '    { "Name": "%s", "Kind": "script (removed)", "Local": %s, "Path": "%s" }' \
+                "$(json_escape "$name")" "$ljson" "$(json_escape "$opath")"
+        done <<< "$leftovers"
+    fi
     [ "$first" -eq 1 ] || printf '\n'
     printf '  ]\n'
     printf '}\n'
@@ -256,6 +320,12 @@ drifted="$(printf '%s' "$rows" | awk -F '\t' '$7 == "true" { print $1 "\t" $2 "\
 if [ -n "$drifted" ]; then
     printf 'Manifest drift (manifest version != repo header version):\n'
     printf '%s\n' "$drifted" | print_table 'Name,Kind,Manifest,Repo'
+    printf '\n'
+fi
+
+if [ -n "$leftovers" ]; then
+    printf 'Removed leftovers (installed, but the manifest marks them removed):\n'
+    printf '%s' "$leftovers" | awk -F '\t' '{ print $1 "\tscript (removed)\t" ($2 == "" ? "(none)" : $2) "\t" $3 }' | print_table 'Name,Kind,Local,Path'
     printf '\n'
 fi
 

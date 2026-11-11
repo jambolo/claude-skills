@@ -24,6 +24,10 @@ Every `SKILL.md` and `AGENT.md` carries a semver `version:` line directly under 
 
 After changing a skill's or agent's content, bump its `version:` (patch = wording, minor = new capability or a changed agent `model`/`effort`/`tools`, major = changed operations/inputs/artifact formats or a change of kind) **and** update its manifest entry in the same commit.
 
+## Removing a skill or agent
+
+Do not just delete the leaf. In the same commit, drop its manifest entry and add a tombstone to the manifest's top-level `removed` array (`{ "name", "kind", "removed": "<YYYY-MM-DD>" }`) so `skill-version-check` can offer to delete the installed copy from `~/.claude/skills/` or `~/.claude/agents/`. Keep tombstones; never regenerate the manifest without carrying `removed` over.
+
 ## Skill families
 
 Each category folder has its own `CLAUDE.md` with the family detail; it loads when you work under that folder. Only `finance/` has a test suite (see `finance/CLAUDE.md`).

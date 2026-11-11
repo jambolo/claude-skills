@@ -22,8 +22,9 @@
 #
 # Also reports manifest drift (manifest version != repo frontmatter version)
 # and superseded leftovers: an installed skill folder whose name the manifest
-# now lists as an agent, or vice versa. Installed skills/agents the manifest
-# does not own at all are ignored.
+# now lists as an agent, or vice versa, and removed leftovers: an installed
+# skill or agent the manifest's `removed` list marks as obsolete. Installed
+# skills/agents the manifest does not own at all are ignored.
 #
 # Usage:
 #   compare-skill-versions.sh [--repo-root <path>] [--skill-install-root <path>]
@@ -183,6 +184,42 @@ read_manifest() {
     fi
 }
 
+# Emits one TAB-separated `name<TAB>kind` line per tombstone in the optional
+# top-level "removed" array. Absent array means nothing was removed.
+read_removed() {
+    if command -v jq >/dev/null 2>&1; then
+        jq -r '(.removed // [])[] | [.name, (.kind // "")] | @tsv' "$manifest_path"
+    else
+        awk '
+            function field(obj, key,   re, s) {
+                re = "\"" key "\"[ \t\r\n]*:[ \t\r\n]*\"[^\"]*\""
+                if (!match(obj, re)) return ""
+                s = substr(obj, RSTART, RLENGTH)
+                sub(/^[^:]*:[ \t\r\n]*"/, "", s)
+                sub(/"$/, "", s)
+                return s
+            }
+            { data = data $0 "\n" }
+            END {
+                i = index(data, "\"removed\"")
+                if (i == 0) exit 0
+                rest = substr(data, i)
+                j = index(rest, "[")
+                if (j == 0) exit 0
+                rest = substr(rest, j)
+                k = index(rest, "]")
+                if (k > 0) rest = substr(rest, 1, k)
+                while (match(rest, /\{[^{}]*\}/)) {
+                    obj = substr(rest, RSTART, RLENGTH)
+                    rest = substr(rest, RSTART + RLENGTH)
+                    name = field(obj, "name")
+                    if (name != "") printf "%s\t%s\n", name, field(obj, "kind")
+                }
+            }
+        ' "$manifest_path"
+    fi
+}
+
 entries_tsv="$(read_manifest)"
 [ -n "$entries_tsv" ] || die "No entries found in $manifest_path (manifestVersion 2 expects an 'entries' array)."
 
@@ -227,16 +264,35 @@ while IFS=$'\t' read -r name manifest_version rel_path kind; do
     rows="${rows}${name}"$'\t'"${kind}"$'\t'"${manifest_version}"$'\t'"${repo_version:-(none)}"$'\t'"${local_version:-(none)}"$'\t'"${status}"$'\t'"${drift}"$'\t'"${repo_root}/${rel_path}"$'\t'"${local_path}"$'\n'
 done <<< "$entries_tsv"
 
-# Superseded leftovers, TAB-separated: name, kind, local version, path.
-# Only names the manifest owns under the other kind; unowned installs are ignored.
+removed_skills=""
+removed_agents=""
+while IFS=$'\t' read -r name kind; do
+    [ -n "$name" ] || continue
+    case "$kind" in
+        skill) removed_skills="${removed_skills}${name}"$'\n' ;;
+        agent) removed_agents="${removed_agents}${name}"$'\n' ;;
+        *)     die "Removed entry '$name' has kind '$kind'; every removed entry must declare kind as 'skill' or 'agent'." ;;
+    esac
+done <<< "$(read_removed)"
+
+# Leftovers, TAB-separated: name, kind, local version, path.
+# Superseded: names the manifest owns under the other kind. Removed: names the
+# manifest lists as removed (unless re-added as a live entry of that kind).
+# Unowned installs are ignored.
 orphans=""
 if [ -d "$skill_install_root" ]; then
     while IFS= read -r dir; do
         [ -n "$dir" ] || continue
         base="$(basename "$dir")"
         if printf '%s' "$known_skills" | grep -Fxq "$base"; then continue; fi
-        if ! printf '%s' "$known_agents" | grep -Fxq "$base"; then continue; fi
-        orphans="${orphans}${base}"$'\t'"skill (superseded by agent)"$'\t'"$(frontmatter_field "$dir/SKILL.md" version)"$'\t'"${dir}"$'\n'
+        if printf '%s' "$known_agents" | grep -Fxq "$base"; then
+            okind="skill (superseded by agent)"
+        elif printf '%s' "$removed_skills" | grep -Fxq "$base"; then
+            okind="skill (removed)"
+        else
+            continue
+        fi
+        orphans="${orphans}${base}"$'\t'"${okind}"$'\t'"$(frontmatter_field "$dir/SKILL.md" version)"$'\t'"${dir}"$'\n'
     done <<< "$(find "$skill_install_root" -mindepth 1 -maxdepth 1 -type d | sort)"
 fi
 if [ -d "$agent_install_root" ]; then
@@ -244,8 +300,14 @@ if [ -d "$agent_install_root" ]; then
         [ -n "$file" ] || continue
         base="$(basename "$file" .md)"
         if printf '%s' "$known_agents" | grep -Fxq "$base"; then continue; fi
-        if ! printf '%s' "$known_skills" | grep -Fxq "$base"; then continue; fi
-        orphans="${orphans}${base}"$'\t'"agent (superseded by skill)"$'\t'"$(frontmatter_field "$file" version)"$'\t'"${file}"$'\n'
+        if printf '%s' "$known_skills" | grep -Fxq "$base"; then
+            okind="agent (superseded by skill)"
+        elif printf '%s' "$removed_agents" | grep -Fxq "$base"; then
+            okind="agent (removed)"
+        else
+            continue
+        fi
+        orphans="${orphans}${base}"$'\t'"${okind}"$'\t'"$(frontmatter_field "$file" version)"$'\t'"${file}"$'\n'
     done <<< "$(find "$agent_install_root" -mindepth 1 -maxdepth 1 -type f -name '*.md' | sort)"
 fi
 
@@ -322,7 +384,7 @@ if [ -n "$drifted" ]; then
 fi
 
 if [ -n "$orphans" ]; then
-    printf 'Superseded leftovers (installed under the old kind):\n'
+    printf 'Leftovers (superseded by the other kind, or removed from the repo):\n'
     printf '%s' "$orphans" | awk -F '\t' '{ print $1 "\t" $2 "\t" ($3 == "" ? "(none)" : $3) "\t" $4 }' | print_table 'Name,Kind,Local,Path'
     printf '\n'
 fi

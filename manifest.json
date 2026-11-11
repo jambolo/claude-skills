@@ -1,6 +1,6 @@
 {
   "manifestVersion": 2,
-  "updated": "2026-10-22",
+  "updated": "2026-11-10",
   "skillInstallRoot": "~/.claude/skills",
   "agentInstallRoot": "~/.claude/agents",
   "entries": [
@@ -111,14 +111,14 @@
     },
     {
       "name": "script-version-check",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "kind": "skill",
       "path": "skill-management/script-version-check",
       "family": "skill-management"
     },
     {
       "name": "skill-version-check",
-      "version": "4.0.0",
+      "version": "4.1.0",
       "kind": "skill",
       "path": "skill-management/skill-version-check",
       "family": "skill-management"

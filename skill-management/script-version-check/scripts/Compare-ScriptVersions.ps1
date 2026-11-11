@@ -23,9 +23,10 @@ kind, and an entry with a missing or different kind is an error. The layout is:
 A script's version is the first line matching `# version: <value>`
 (case-insensitive `version`) within the first 15 lines of the file.
 
-Also reports manifest drift (manifest version != repo header version). The
-install root is not owned by the repo, so unlike Compare-SkillVersions.ps1
-there is no "installed but not in manifest" section.
+Also reports manifest drift (manifest version != repo header version) and
+removed leftovers: a file installed under a name the manifest's optional
+`removed` array marks as obsolete. The install root is not owned by the repo,
+so nothing else installed there is ever reported.
 
 .PARAMETER RepoRoot
 Root of the scripts repo (the folder holding manifest.json). Defaults
@@ -116,11 +117,29 @@ $rows = foreach ($e in $entries) {
     }
 }
 
+$removed = @()
+if ($manifest.PSObject.Properties['removed']) { $removed = @($manifest.removed) }
+$known = @($rows | ForEach-Object { $_.Name })
+$leftovers = @(foreach ($r in $removed) {
+    if ([string]$r.kind -ne 'script') {
+        throw "Removed entry '$($r.name)' has kind '$($r.kind)'; every removed entry must declare kind as 'script'."
+    }
+    $f = Join-Path $InstallRoot $r.name
+    if ($known -contains $r.name -or -not (Test-Path -LiteralPath $f -PathType Leaf)) { continue }
+    [pscustomobject]@{
+        Name  = $r.name
+        Kind  = 'script (removed)'
+        Local = (Get-HeaderVersion -Path $f)
+        Path  = $f
+    }
+})
+
 if ($Json) {
     [pscustomobject]@{
         repoRoot    = $RepoRoot
         installRoot = $InstallRoot
         entries     = $rows
+        orphans     = $leftovers
     } | ConvertTo-Json -Depth 5
     return
 }
@@ -134,6 +153,11 @@ $drifted = @($rows | Where-Object { $_.Drift })
 if ($drifted.Count -gt 0) {
     Write-Output 'Manifest drift (manifest version != repo header version):'
     $drifted | Format-Table Name, Kind, Manifest, Repo -AutoSize | Out-String -Width 200 | Write-Output
+}
+
+if ($leftovers.Count -gt 0) {
+    Write-Output 'Removed leftovers (installed, but the manifest marks them removed):'
+    $leftovers | Format-Table Name, Kind, Local, Path -AutoSize | Out-String -Width 200 | Write-Output
 }
 
 $counts = $rows | Group-Object Status | ForEach-Object { "$($_.Name)=$($_.Count)" }

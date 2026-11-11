@@ -1,12 +1,13 @@
 ---
 name: script-version-check
-version: 1.0.0
+version: 1.1.0
 description: >
   Pulls the latest changes into the bash-script repo in the current folder (the
   nearest ancestor holding `manifest.json`), then checks the script
   versions recorded in that manifest against the versions of the same scripts
   installed in `~/bin`, and reports which installed scripts are outdated,
-  missing, ahead, or unversioned — and optionally installs or updates them.
+  missing, ahead, or unversioned — and optionally installs or updates them, and
+  removes installed scripts the manifest marks as removed.
   Also keeps the manifest itself honest: regenerates it from the scripts'
   `# version:` header comments and bumps a script's version after it is
   edited. Use when the user says things like "check my script versions", "are
@@ -54,9 +55,12 @@ time**, whichever operation follows.
   default and no other kind — an entry with a missing or different `kind` is an
   error, and both scripts refuse the whole manifest rather than guessing.
 - `~/bin` is **not owned by the repo**: it holds scripts and binaries from many
-  sources. Never enumerate it, never mirror it, and never delete anything in it
-  — the only writes are single-file copies of confirmed manifest entries. There
-  is no "installed but not in manifest" report for this skill.
+  sources. Never enumerate it and never mirror it. The only writes are
+  single-file copies of confirmed manifest entries, and the only deletions are
+  confirmed removals of files the manifest's `removed` array names exactly (see
+  Sync). There is no "installed but not in manifest" report for this skill —
+  anything neither listed in `entries` nor tombstoned in `removed` is never
+  mentioned.
 
 ## Version headers
 
@@ -83,9 +87,14 @@ comparison scripts and the installed copies are read the same way.
   "installRoot": "~/bin",
   "entries": [
     { "name": "<name>", "version": "<x.y.z>", "kind": "script", "path": "<name>" }
+  ],
+  "removed": [
+    { "name": "<name>", "kind": "script", "removed": "<YYYY-MM-DD>" }
   ]
 }
 ```
+
+`removed` is optional; see **Remove a script** under Bookkeeping.
 
 Rules: `name` must equal the script's filename and `path` is the script's
 location relative to the repo root, with forward slashes (usually just the
@@ -185,6 +194,11 @@ It also prints a **Manifest drift** section when `Manifest` != `Repo` — the
 manifest is stale relative to the repo; fix with Bookkeeping before trusting
 any status column.
 
+A **Removed leftovers** section lists each regular file at `~/bin/<name>` whose
+name the manifest's `removed` array tombstones (and that is not a live entry
+again). Nothing else in `~/bin` is ever listed. It still runs from the user's
+`PATH`, so call it out and offer to remove it as part of Sync.
+
 Summarize in prose: how many OK, what is stale, what is missing. Do not restate
 the whole table if everything is `OK`.
 
@@ -216,7 +230,25 @@ the whole table if everything is `OK`.
    install -m 0755 "<repo>/<path>" "<installRoot>/<name>"
    ```
 
-4. Re-run Check and report the resulting status. If `~/bin` is not on the
+4. If Check listed **Removed leftovers**, offer to delete them: list each by
+   name and path and get confirmation. With confirmation, delete exactly those
+   files and nothing else:
+
+   On Windows:
+
+   ```powershell
+   Remove-Item -LiteralPath "<installRoot>\<name>"
+   ```
+
+   On Linux/macOS:
+
+   ```bash
+   rm -- "<installRoot>/<name>"
+   ```
+
+   If the user declines, skip silently — but warn that the obsolete script is
+   still on `PATH`.
+5. Re-run Check and report the resulting status. If `~/bin` is not on the
    user's `PATH`, mention it — installed scripts will not resolve otherwise.
 
 Only copy repo → `~/bin`. Never copy `~/bin` → repo; edits belong in the repo,
@@ -235,6 +267,19 @@ format above. Non-script files (configs, docs, licenses, template folders) are
 never manifest entries. A script with no header is an error — add
 `# version: 1.0.0` directly under the shebang rather than omitting the entry.
 Ask before adding a previously unmanaged script the user has not mentioned.
+
+**Remove a script.** Deleting a script from the repo is not enough — installed
+copies would linger forever. In the same commit as the deletion, remove its
+entry from `entries` and add a tombstone to the top-level `removed` array
+(`kind` is mandatory and must be `script`):
+
+```json
+{ "name": "<name>", "kind": "script", "removed": "<YYYY-MM-DD>" }
+```
+
+Keep a tombstone indefinitely; drop it only if the name is reused by a live
+entry. Regenerating the manifest must carry the existing `removed` array over
+unchanged — it cannot be derived from the repo.
 
 **Bump a version.** After a script's content changes:
 

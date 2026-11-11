@@ -1,13 +1,14 @@
 ---
 name: skill-version-check
-version: 4.0.0
+version: 4.1.0
 description: >
   Pulls the latest `jambolo/claude-skills` from GitHub, then checks the skill
   and agent versions recorded in that repo's `manifest.json` against the
   versions of the same entries installed locally under `~/.claude/skills/`
   (skills) and `~/.claude/agents/` (agents), and reports
   which local entries are outdated, missing, ahead, or unversioned — and
-  optionally installs or updates them. Also keeps the manifest itself honest:
+  optionally installs or updates them, and removes installed skills and agents
+  the manifest marks as removed. Also keeps the manifest itself honest:
   regenerates it from the repo's `SKILL.md` / `AGENT.md` frontmatter and bumps an entry's
   version after it is edited. Use when the user says things like "check my skill
   versions", "are my skills up to date", "which installed skills are stale",
@@ -164,14 +165,18 @@ It also prints two secondary sections:
 
 - **Manifest drift** — `Manifest` != `Repo`. The manifest is stale relative to
   the repo; fix with Bookkeeping before trusting any status column.
-- **Superseded leftovers** — an installed skill folder (or agent file) whose
-  name the manifest now lists under the other kind, shown with `Kind`
-  `skill (superseded by agent)` or `agent (superseded by skill)`. Left in
-  place it still dispatches under the old name alongside the new one, so call
-  it out explicitly and offer to remove it as part of Sync — only ever with the
+- **Leftovers** — an installed skill folder (or agent file) that should no
+  longer be there, shown with one of these `Kind` values:
+  - `skill (superseded by agent)` / `agent (superseded by skill)` — the
+    manifest now lists the name under the other kind.
+  - `skill (removed)` / `agent (removed)` — the manifest's `removed` list marks
+    the name as deleted from the repo.
+
+  Left in place it still dispatches alongside the current entries, so call it
+  out explicitly and offer to remove it as part of Sync — only ever with the
   user's confirmation. Installed skills and agents this repo does not own at
-  all are not reported: the scripts skip them, and the report never mentions
-  them.
+  all (neither an entry nor a `removed` tombstone) are not reported: the
+  scripts skip them, and the report never mentions them.
 
 Summarize in prose: how many OK, what is stale, what is missing. Do not restate
 the whole table if everything is `OK`.
@@ -226,11 +231,14 @@ the whole table if everything is `OK`.
    mkdir -p "<agentInstallRoot>" && cp "<repo>/<path>/AGENT.md" "<agentInstallRoot>/<name>.md"
    ```
 
-5. If Check listed a `superseded` orphan for a name you just installed (e.g. the
-   old `~/.claude/skills/planner/` folder next to the new
-   `~/.claude/agents/planner.md`), offer to remove it now; with confirmation,
-   `Remove-Item -Recurse -Force` / `rm -rf` the orphan. Skip silently if the
-   user declines — but warn that both will dispatch.
+5. If Check listed leftovers, offer to remove them now, listing each by name
+   and path. A `superseded` leftover is the old-kind copy of a name you just
+   installed (e.g. the old `~/.claude/skills/planner/` folder next to the new
+   `~/.claude/agents/planner.md`); a `removed` leftover is an obsolete skill or
+   agent deleted from the repo. With confirmation, `Remove-Item -Recurse -Force`
+   / `rm -rf` the folder (skill) or `Remove-Item` / `rm` the single file
+   (agent) — exactly the paths the report printed, nothing else. Skip silently
+   if the user declines — but warn that the obsolete entry will still dispatch.
 6. Re-run Check and report the resulting status. Agent definitions are read at
    session start — tell the user a new or changed agent needs a new Claude Code
    session to take effect.
@@ -268,6 +276,26 @@ error (one name, one kind). Entries are ordered by family, then by name within
 the family. Every skill and agent in the repo appears, including this skill. A
 frontmatter with no `version:` is an error — add `version: 1.0.0` (directly
 under `name:`) rather than omitting the entry from the manifest.
+
+**Remove a skill or agent.** Deleting a leaf from the repo is not enough —
+installed copies would linger forever, because the scripts ignore anything the
+manifest does not mention. Instead, in the same commit as the deletion, remove
+its entry from `entries` and record a tombstone in the manifest's top-level
+`removed` array:
+
+```json
+"removed": [
+  { "name": "<name>", "kind": "skill", "removed": "<YYYY-MM-DD>" }
+]
+```
+
+`kind` is mandatory (`skill` or `agent`) and decides where Check looks — the
+folder `<skillInstallRoot>/<name>/` or the file `<agentInstallRoot>/<name>.md`.
+Keep a tombstone indefinitely (it is cheap, and an old install may surface at
+any time); drop it only if the name is reused by a live entry of the same kind.
+Regenerating the manifest from frontmatter must carry the existing `removed`
+array over unchanged — it cannot be derived from the repo, since the leaves are
+gone. The `removed` array is optional; a manifest without one removes nothing.
 
 **Bump a version.** After a skill's or agent's content changes:
 
