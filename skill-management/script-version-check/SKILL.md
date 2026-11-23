@@ -1,6 +1,6 @@
 ---
 name: script-version-check
-version: 1.1.0
+version: 1.1.2
 description: >
   Pulls the latest changes into the bash-script repo in the current folder (the
   nearest ancestor holding `manifest.json`), then checks the script

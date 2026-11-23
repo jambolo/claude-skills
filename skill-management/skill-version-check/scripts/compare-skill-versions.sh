@@ -147,7 +147,9 @@ manifest_path="$repo_root/manifest.json"
 # rejected by the caller.
 read_manifest() {
     if command -v jq >/dev/null 2>&1; then
-        jq -r '.entries[] | [.name, .version, .path, (.kind // "")] | @tsv' "$manifest_path"
+        # The native Windows jq.exe ends each output line with \r\n; strip the \r
+        # once here so it cannot leak into the last field (kind). No-op elsewhere.
+        jq -r '.entries[] | [.name, .version, .path, (.kind // "")] | @tsv' "$manifest_path" | tr -d '\r'
     else
         # Minimal scanner for the manifest shape: slurps the file, isolates the
         # "entries" array, and pulls name/version/path/kind out of each flat
@@ -188,7 +190,7 @@ read_manifest() {
 # top-level "removed" array. Absent array means nothing was removed.
 read_removed() {
     if command -v jq >/dev/null 2>&1; then
-        jq -r '(.removed // [])[] | [.name, (.kind // "")] | @tsv' "$manifest_path"
+        jq -r '(.removed // [])[] | [.name, (.kind // "")] | @tsv' "$manifest_path" | tr -d '\r'
     else
         awk '
             function field(obj, key,   re, s) {
