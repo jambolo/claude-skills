@@ -7,18 +7,18 @@ on:
     paths:
       - 'CMakeLists.txt'
 
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+  CTEST_PARALLEL_LEVEL: ''
+
 jobs:
   build:
     name: Build & Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -D@PROJECT_NAME@_BUILD_TESTS=ON
-      - name: Build
-        run: cmake --build build --config Release
-      - name: Test
-        run: ctest --test-dir build --build-config Release --output-on-failure --no-tests=ignore
+      - name: Configure, build, verify headers, test
+        run: cmake --workflow --preset ci
 
   release:
     name: Tag release

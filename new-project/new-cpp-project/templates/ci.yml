@@ -12,6 +12,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+  CTEST_PARALLEL_LEVEL: ''
+
 jobs:
   build-and-test:
     name: Build & Test / ${{ matrix.os }}
@@ -22,12 +26,8 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v6
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -D@PROJECT_NAME@_BUILD_TESTS=ON
-      - name: Build
-        run: cmake --build build --config Release
-      - name: Test
-        run: ctest --test-dir build --build-config Release --output-on-failure --no-tests=ignore
+      - name: Configure, build, verify headers, test
+        run: cmake --workflow --preset ci
 
   lint-and-format:
     if: github.event_name == 'pull_request'
@@ -36,10 +36,10 @@ jobs:
       - uses: actions/checkout@v6
       - name: Format check
         run: git ls-files '*.cpp' '*.h' | xargs -r clang-format --dry-run --Werror
-      - name: Configure (compile database)
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Configure (compile database, tests included)
+        run: cmake --preset ci
       - name: Lint
-        run: git ls-files '*.cpp' | xargs -r clang-tidy -p build
+        run: git ls-files '*.cpp' | xargs -r clang-tidy -p build/ci
 
   docs:
     name: Build and deploy docs
@@ -57,10 +57,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install Doxygen
         run: sudo apt-get update && sudo apt-get install -y doxygen graphviz
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -D@PROJECT_NAME@_DOXYGEN_OUTPUT_DIRECTORY=${{ github.workspace }}/build/docs
       - name: Build documentation
-        run: cmake --build build --target docs
+        run: cmake --workflow --preset docs
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
       - name: Upload Pages artifact
@@ -80,12 +78,8 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install gcovr
         run: pipx install gcovr
-      - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -D@PROJECT_NAME@_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS=--coverage
-      - name: Build
-        run: cmake --build build
-      - name: Test
-        run: ctest --test-dir build --output-on-failure --no-tests=ignore
+      - name: Build and test with coverage
+        run: cmake --workflow --preset coverage
       - name: Generate coverage report
         run: gcovr -r . --xml -o coverage.xml --exclude 'build/' --exclude 'test/'
       - name: Upload to Codecov

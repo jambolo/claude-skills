@@ -1,7 +1,7 @@
 ---
 name: new-cpp-project
-version: 1.0.2
-description: Scaffold a new C++ project using CMake — creates the directory, git repo with seeded commits, MIT license, .gitignore, README, a CMakeLists.txt from a template (executable or library), and a GitHub Actions CI workflow that builds, tests, lints, and checks formatting. Library scaffolds also get a Doxygen docs job deployed to GitHub Pages, a Codecov coverage job, and a CD release workflow. Also finishes a partially set-up C++ project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new C++ or CMake project, set up a C++ executable or library, or complete/fill in the setup of an existing one.
+version: 2.0.0
+description: Scaffold a new C++ project using CMake — creates the directory, git repo with seeded commits, MIT license, .gitignore, README, a CMakeLists.txt from a template (executable or library), a CMakePresets.json with dev/ci workflow presets, and a GitHub Actions CI workflow that builds, tests, lints, and checks formatting. Library scaffolds also get a Doxygen docs job deployed to GitHub Pages, a Codecov coverage job, and a CD release workflow. Also finishes a partially set-up C++ project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new C++ or CMake project, set up a C++ executable or library, or complete/fill in the setup of an existing one.
 ---
 
 # New C++ project (CMake)
@@ -9,9 +9,20 @@ description: Scaffold a new C++ project using CMake — creates the directory, g
 Bootstrap a fresh C++ CMake project: new directory, git repo with seeded
 commits, MIT license, Visual-Studio-aware `.gitignore`, README, a
 `CMakeLists.txt` rendered from a bundled template — executable or library —
-and a GitHub Actions CI workflow. The library variant also adds Doxygen
-config, a package config, a GTest `test/` dir, an `include/<name>/`
-layout, docs and coverage CI jobs, and a CD release workflow.
+a `CMakePresets.json`, and a GitHub Actions CI workflow driven by those
+presets. The library variant also adds a Doxygen `docs` target, a package
+config with CPS and SBOM output, a GTest `test/` dir, an
+`include/<name>/` header file set, docs and coverage CI jobs, and a CD
+release workflow.
+
+The executable template declares `cmake_minimum_required(VERSION 3.28...4.5)`:
+3.28 is the floor (Ubuntu 24.04's CMake; FetchContent `EXCLUDE_FROM_ALL`,
+`SYSTEM`, `FIND_PACKAGE_ARGS`, `block()`, header-set verification,
+`CMAKE_COMPILE_WARNING_AS_ERROR`). The library template declares
+`cmake_minimum_required(VERSION 4.5)` for CPS `install(PACKAGE_INFO)`,
+`SemanticVersion` package compatibility, `install(SBOM)`, and Doxygen
+`USES_TERMINAL`. The upper bound turns on every policy through that version
+when a newer CMake runs it.
 
 ## Inputs
 
@@ -29,9 +40,9 @@ Bundled in this skill dir. `@PROJECT_NAME@`, `@EXECUTABLE_NAME@`,
 
 - `templates/EXE_TEMPLATE_CMakeLists.txt.in`
 - `templates/LIBRARY_TEMPLATE_CMakeLists.txt.in`
-- `templates/LIBRARY_TEMPLATE_Doxyfile.in`
 - `templates/PROJECT_NAMEConfig.cmake.in`
 - `templates/INTERNAL_LIBRARY_MODULE_TEST_CMakeLists.txt`
+- `templates/CMakePresets.json`
 - `templates/ci.yml`
 - `templates/LIBRARY_TEMPLATE_cd.yml`
 - `reference/mit-license.txt`
@@ -50,10 +61,17 @@ is idempotent — before running a step, check whether its output already exists
 
 - If the repo already has commits, skip the "New repo" empty commit.
 - An artifact that already exists (LICENSE, README, `CMakeLists.txt`,
-  workflows, placeholder sources) is kept as-is, not overwritten; skip that
-  step and its commit.
+  `CMakePresets.json`, workflows, placeholder sources) is kept as-is, not
+  overwritten; skip that step and its commit.
+- The presets and workflows assume the template's cache options
+  (`<name>_BUILD_TESTS`, `<name>_BUILD_DOCS`) and, for libraries, the
+  `all_verify_interface_header_sets` target. When a pre-existing
+  `CMakeLists.txt` was kept, check it defines them and report any that are
+  missing rather than editing it.
 - `.gitignore` is merged, not replaced: append only the missing entries
-  (including `.vscode/`).
+  (including `.vscode/`). If it ignores `CMakePresets.json` (an older
+  version of this skill did), delete that line — the presets file is
+  committed now; `CMakeUserPresets.json` is the local one to ignore.
 - Only commit a step that actually changed something, keeping the same commit
   messages.
 
@@ -87,11 +105,14 @@ it.
    Append:
 
    ```text
+   # CMake build trees and per-user presets
+   build/
+   CMakeUserPresets.json
+
    # Visual Studio artifacts
    out/
    .vs/
    CMakeSettings.json
-   CMakePresets.json
 
    # VS Code
    .vscode/
@@ -144,21 +165,41 @@ it.
    `git ls-remote` is unavailable, read the tag from
    `https://github.com/<owner>/<repo>/releases/latest`.
 
+   The `cmake_minimum_required` upper bound is likewise a baseline (`4.5` for
+   executables; the library's `VERSION 4.5` has none, so its bound is the
+   floor). If `cmake` is on PATH and the local `<major>.<minor>` from
+   `cmake --version` is newer, write `VERSION <floor>...<local>` (never lower
+   the bound, and never change the floor: `3.28` for executables, `4.5` for
+   libraries). Leave it as-is when `cmake` is absent.
+
    Then `git add CMakeLists.txt && git commit -m "Added default CMakeLists.txt"`.
 
-6. Workflows — copy `templates/ci.yml` (this skill dir) to
-   `.github/workflows/ci.yml`, replacing every `@PROJECT_NAME@` with the
-   project name (it appears in the configure flags of the `build-and-test`,
-   `docs`, and `coverage` jobs). Then by kind:
+6. Presets — read `templates/CMakePresets.json`, replace every
+   `@PROJECT_NAME@` with the project name, and write `CMakePresets.json`.
+   Then by kind:
+
+   - **Executable** — delete every preset named `coverage`, `docs`, or
+     `ci-verify-headers` (configure, build, test, and workflow entries), and
+     the `ci-verify-headers` step of the `ci` workflow preset. The executable
+     template has no docs option and no header sets to verify. Keep the JSON
+     valid (no trailing commas).
+   - **Library** — keep every preset, and set `cmakeMinimumRequired` to
+     `{ "major": 4, "minor": 5, "patch": 0 }` to match the library's
+     `cmake_minimum_required` floor.
+
+   Then `git add CMakePresets.json && git commit -m "Added CMakePresets.json"`.
+
+7. Workflows — copy `templates/ci.yml` (this skill dir) to
+   `.github/workflows/ci.yml` verbatim (project-specific settings live in
+   `CMakePresets.json`). Then by kind:
 
    - **Executable** — delete the entire `docs` and `coverage` jobs from
      `.github/workflows/ci.yml`; they only make sense for the library scaffold
-     (Doxygen config, tests). Commit:
+     (Doxygen target, tests). Commit:
      `git add .github && git commit -m "Added GitHub Actions CI workflow"`.
    - **Library** — keep all four CI jobs, and also copy
-     `templates/LIBRARY_TEMPLATE_cd.yml` to `.github/workflows/cd.yml`,
-     replacing `@PROJECT_NAME@` (its build job's configure flag). Commit both
-     together:
+     `templates/LIBRARY_TEMPLATE_cd.yml` to `.github/workflows/cd.yml`
+     verbatim. Commit both together:
      `git add .github && git commit -m "Added GitHub Actions CI/CD workflows"`.
 
    The templates' `uses:` pins are a current-as-of-authoring baseline and may
@@ -183,16 +224,15 @@ it.
    unavailable, read the resolved tag from
    `https://github.com/<owner>/<repo>/releases/latest`.
 
-7. Placeholder / misc files:
+8. Placeholder / misc files:
 
    - **Executable** — `touch main.cpp`.
    - **Library**:
      - `mkdir -p include/<project name>` then
        `touch include/<project name>/<project name>.h <project name>.cpp`
-     - Copy `templates/LIBRARY_TEMPLATE_Doxyfile.in` → `Doxyfile.in`
-       **verbatim** (its `@…@` are resolved later by CMake `configure_file`).
      - `mkdir cmake`; render `templates/PROJECT_NAMEConfig.cmake.in` with
-       `@PROJECT_NAME@` substituted → `cmake/<project name>Config.cmake.in`.
+       `@PROJECT_NAME@` substituted → `cmake/<project name>Config.cmake.in`
+       (`@PACKAGE_INIT@` stays; `configure_package_config_file` expands it).
      - `mkdir test`; copy
        `templates/INTERNAL_LIBRARY_MODULE_TEST_CMakeLists.txt` →
        `test/CMakeLists.txt` **verbatim** (uses CMake `${PROJECT_NAME}`, no
@@ -205,27 +245,36 @@ Leave these placeholder files uncommitted.
 - **Triggers**: push to `master`, `develop`, `release/**`; and all pull requests.
 - **Concurrency**: in-progress runs for the same ref are cancelled on new pushes
   to a pull request (`cancel-in-progress` only for PR events).
-- **`build-and-test`** job: every trigger — CMake configure (Release, tests
-  enabled via `-D<project name>_BUILD_TESTS=ON`), build, then
-  `ctest --output-on-failure`, across an **OS matrix** (`ubuntu-latest`,
-  `windows-latest`, `fail-fast: false`). `--no-tests=ignore` keeps a project
-  with no tests yet (the executable scaffold) green.
+- **Presets**: every job drives CMake through `CMakePresets.json` — build
+  trees land in `build/<preset>`. Workflow-level `CMAKE_BUILD_PARALLEL_LEVEL`
+  (4) and an empty `CTEST_PARALLEL_LEVEL` (CTest picks the level) parallelize
+  builds and tests. Locally, `cmake --workflow --preset dev` configures
+  (Debug, tests on), builds, and tests.
+- **`build-and-test`** job: every trigger — `cmake --workflow --preset ci`:
+  configure (Release, `<project name>_BUILD_TESTS=ON`,
+  `CMAKE_COMPILE_WARNING_AS_ERROR=ON` — GoogleTest is exempt), build,
+  (library) build `all_verify_interface_header_sets` so every public header
+  must compile on its own, then `ctest` with output on failure, across an
+  **OS matrix** (`ubuntu-latest`, `windows-latest`, `fail-fast: false`). The
+  test preset's `noTestsAction: ignore` keeps a project with no tests yet (the
+  executable scaffold) green.
 - **`lint-and-format`** job: gated by `if: github.event_name == 'pull_request'`,
   so `clang-format --dry-run --Werror` (LLVM fallback style unless the project
-  adds a `.clang-format`) and `clang-tidy` (default checks, against the CMake
-  compile database) run **only on pull requests**.
+  adds a `.clang-format`) and `clang-tidy` (default checks, against the
+  `ci` preset's compile database, which includes the test sources) run
+  **only on pull requests**.
 - **`docs`** job (library scaffolds only): gated by
   `if: github.ref == 'refs/heads/master'` and `needs: build-and-test`, so it
   runs **only on master after build/test pass**. Installs Doxygen + Graphviz,
-  configures with `-D<project name>_DOXYGEN_OUTPUT_DIRECTORY` (which turns on
-  the CMake `docs` target), builds Doxygen HTML, and deploys it to GitHub
-  Pages. Requires Pages enabled for the repo (Settings → Pages → Source:
-  GitHub Actions).
+  runs `cmake --workflow --preset docs` (`<project name>_BUILD_DOCS=ON` turns
+  on the `doxygen_add_docs` target `docs`), and deploys `build/docs/html` to
+  GitHub Pages. Requires Pages enabled for the repo (Settings → Pages →
+  Source: GitHub Actions).
 - **`coverage`** job (library scaffolds only): gated by
   `if: github.ref == 'refs/heads/develop'` and `needs: build-and-test`, so it
-  runs **only on develop**. Builds Debug with `--coverage` instrumentation,
-  runs the tests, converts the gcov data with `gcovr` to Cobertura XML, and
-  uploads it to Codecov. Requires a `CODECOV_TOKEN` repo secret (Settings →
+  runs **only on develop**. `cmake --workflow --preset coverage` builds Debug
+  with `--coverage` instrumentation and runs the tests; `gcovr` converts the
+  gcov data to Cobertura XML, which is uploaded to Codecov. Requires a `CODECOV_TOKEN` repo secret (Settings →
   Secrets and variables → Actions).
 - The workflow builds whatever is committed — the scaffold's placeholder
   source files are left uncommitted and empty, so CI is meaningful only once
@@ -240,7 +289,7 @@ Leave these placeholder files uncommitted.
 `cd.yml` is the release-automation workflow. Triggers on push to `master` that
 touches `CMakeLists.txt`.
 
-- **`build`** job: configure + build + `ctest` gate — never tag a broken
+- **`build`** job: `cmake --workflow --preset ci` gate — never tag a broken
   master.
 - **`release`** job (`needs: build`, `permissions: contents: write`): reads the
   version from the `VERSION` line of the top-level `project()` call in
@@ -257,7 +306,9 @@ The templates are a strict baseline; toggle these per project:
 - **`docs` and `coverage` jobs / `cd.yml`** — included for library scaffolds,
   removed for executables. For an executable that grows a public API worth
   documenting or testing to that standard, restore them from this skill's
-  `templates/ci.yml` and `templates/LIBRARY_TEMPLATE_cd.yml`. Remove the
+  `templates/ci.yml` and `templates/LIBRARY_TEMPLATE_cd.yml`, the matching
+  presets from `templates/CMakePresets.json`, and the docs/header-set wiring
+  from `templates/LIBRARY_TEMPLATE_CMakeLists.txt.in`. Remove the
   `docs` job from a library repo with no Pages setup — without Pages enabled
   the job fails.
 - **submodules** — off by default. If the repo has a `.gitmodules`, add
