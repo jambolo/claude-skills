@@ -1,6 +1,6 @@
 ---
 name: new-cpp-project
-version: 2.0.0
+version: 2.1.0
 description: Scaffold a new C++ project using CMake — creates the directory, git repo with seeded commits, MIT license, .gitignore, README, a CMakeLists.txt from a template (executable or library), a CMakePresets.json with dev/ci workflow presets, and a GitHub Actions CI workflow that builds, tests, lints, and checks formatting. Library scaffolds also get a Doxygen docs job deployed to GitHub Pages, a Codecov coverage job, and a CD release workflow. Also finishes a partially set-up C++ project, adding only what's missing. Use when the user asks to start/create/initialize/bootstrap a new C++ or CMake project, set up a C++ executable or library, or complete/fill in the setup of an existing one.
 ---
 
@@ -43,6 +43,7 @@ Bundled in this skill dir. `@PROJECT_NAME@`, `@EXECUTABLE_NAME@`,
 - `templates/PROJECT_NAMEConfig.cmake.in`
 - `templates/INTERNAL_LIBRARY_MODULE_TEST_CMakeLists.txt`
 - `templates/CMakePresets.json`
+- `templates/.clang-format`
 - `templates/ci.yml`
 - `templates/LIBRARY_TEMPLATE_cd.yml`
 - `reference/mit-license.txt`
@@ -61,7 +62,7 @@ is idempotent — before running a step, check whether its output already exists
 
 - If the repo already has commits, skip the "New repo" empty commit.
 - An artifact that already exists (LICENSE, README, `CMakeLists.txt`,
-  `CMakePresets.json`, workflows, placeholder sources) is kept as-is, not
+  `CMakePresets.json`, `.clang-format`, workflows, placeholder sources) is kept as-is, not
   overwritten; skip that step and its commit.
 - The presets and workflows assume the template's cache options
   (`<name>_BUILD_TESTS`, `<name>_BUILD_DOCS`) and, for libraries, the
@@ -189,6 +190,10 @@ it.
 
    Then `git add CMakePresets.json && git commit -m "Added CMakePresets.json"`.
 
+   Also copy `templates/.clang-format` (Google style, 120 columns, 4-space
+   indent) verbatim to `.clang-format` and commit it:
+   `git add .clang-format && git commit -m "Added .clang-format"`.
+
 7. Workflows — copy `templates/ci.yml` (this skill dir) to
    `.github/workflows/ci.yml` verbatim (project-specific settings live in
    `CMakePresets.json`). Then by kind:
@@ -259,8 +264,7 @@ Leave these placeholder files uncommitted.
   test preset's `noTestsAction: ignore` keeps a project with no tests yet (the
   executable scaffold) green.
 - **`lint-and-format`** job: gated by `if: github.event_name == 'pull_request'`,
-  so `clang-format --dry-run --Werror` (LLVM fallback style unless the project
-  adds a `.clang-format`) and `clang-tidy` (default checks, against the
+  so `clang-format --dry-run --Werror` (using the scaffolded `.clang-format`) and `clang-tidy` (default checks, against the
   `ci` preset's compile database, which includes the test sources) run
   **only on pull requests**.
 - **`docs`** job (library scaffolds only): gated by
