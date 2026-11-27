@@ -1,6 +1,6 @@
 ---
 name: supervisor
-version: 4.1.1
+version: 4.2.0
 model: sonnet
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash, Agent
@@ -16,7 +16,9 @@ description: >
   pipeline work — from the `lead-developer` skill, or when a person explicitly
   asks to "supervise phase N", "execute the steps for phase N", or "run the
   plan's phase N". Consumes the decomposer's `<plan-name>-<id>.md` step files;
-  if the phase isn't decomposed yet, it spawns the `decomposer` first. Needs the
+  if the phase isn't decomposed yet, it spawns the `decomposer` first — except a
+  phase the roadmap marks `Mode: inline`, which it does itself with no decomposer
+  and no workers. Needs the
   `pipeline-tools` skill installed. Never trusts a worker's self-report. Not for
   running arbitrary tasks in parallel, code review, or anything outside an
   existing plan.
@@ -125,6 +127,9 @@ A sibling's `needs-human` propagates: forward its text verbatim inside your own
   assuming earlier ones are done.
 - A **step** is an atomic unit within a phase, run by one worker. Co-phase steps run in
   **parallel** wherever dependencies and file scopes allow.
+- A phase the roadmap marks `- **Mode:** inline` has no steps and no decomposer run: the
+  supervisor does the whole phase itself, in one commit, checked by the phase Definition
+  of Done. The planner sets the mode; every other phase is decomposed.
 
 **Integration model**
 
@@ -235,6 +240,10 @@ worktrees). Before anything else:
 
 ### 1. Ensure the phase is decomposed
 
+Read the phase's section of the roadmap first. If it carries `- **Mode:** inline` and the
+phase has no step files, skip the rest of this operation and follow **Inline phase**
+below. Otherwise:
+
 If the phase's `<plan-name>-<id>.md` step files don't exist yet, spawn the `decomposer`
 agent for this phase (see Calling a sibling agent). On its `needs-amendment`, spawn the
 `planner` with the note it returned; on the planner's `done`, spawn the decomposer again
@@ -243,14 +252,24 @@ ledger registry landed and are committed, then continue.
 
 ### 2. Build the dependency graph
 
-Read all step files for the phase and the ledger. Form the DAG from each step's
-`depends_on`. A step is **ready** when every dependency is marked done in the ledger.
+Run `bash $S/phase-ready.sh --repo <repo> --plan <plan-name> --phase <N> --ledger <artifacts-dir>/<plan-name>-ledger.md`.
+It prints the ledger's `PLAN` fields, one line per step of the phase — `READY <id>
+route=<r> tier=<t> ancestors=<sha,...>` (pending, every `depends_on` done in the ledger;
+the ancestors are those dependencies' commits), `WAITING <id> on=<ids>`, `DONE <id>
+<commit>`, `OTHER <id> <status>` — and, under `NOTES`, the phase's notes blocks
+(couplings, bootstrap command, contracts). That is everything you route and launch on.
+
+Do NOT Read the step files or the ledger to orient: a step's `objective`, `context`, and
+`actions` are the worker's, the other phases' notes are not yours, and everything you
+load is carried through every later turn. Open a step file only when you need it — to
+resolve a `judgment` step yourself, or to write a revision note for a failed one.
 
 ### 3. Run each ready set — in parallel
 
 Repeat until the phase is done:
 
-- Compute the **ready set** (ready, not-yet-done steps). Their `files_in_scope` are
+- Take the **ready set** — the `READY` lines; re-run `phase-ready.sh` after each wave's
+  merges for the next one (chain it in the same Bash call as the last merge). Their `files_in_scope` are
   pairwise **disjoint** (the decomposer guarantees this), so they are safe to run
   concurrently. Launch a wider ready set as consecutive waves of at most 20 (the
   harness's default concurrent-subagent limit).
@@ -357,6 +376,36 @@ for which items to scrutinize — never a substitute for this run.
   `decomposer`. If the DoD itself is defective — honest, complete work cannot satisfy it —
   that is a brief/roadmap bug: an amendment note to the `planner` (see Brief amendment
   protocol), not a revision.
+
+## Inline phase
+
+A phase the roadmap marks `- **Mode:** inline` is one small unit of work the planner
+judged not worth a decomposer run. You are its only worker: no decomposer, no worker
+agents, no worktree, no step file.
+
+1. Confirm the working tree is clean (`git status --porcelain` empty); if not, return
+   `RESULT: needs-human`.
+2. Read the phase's roadmap section — `Objective`, `Scope` (the exact files you may
+   change), and its `dod` block — and from the brief only `Constraints` plus whatever
+   `Context` the phase's files need. Read the files in `Scope`.
+3. Do the work in the working tree, changing only the files `Scope` lists. Run nothing
+   the phase's own `dod` block does not call for: the project Definition of Done is the
+   caller's to run, not yours.
+4. Run the phase Definition of Done with `dod-run.sh` (see section 5). On `DOD FAIL`, fix
+   within `Scope` and re-run, at most twice.
+5. On `DOD PASS`: commit the changed files once — `supervise(<plan-name>): phase <N>
+   (inline)`. Then record it in the ledger: one Steps row
+   `| <N>.1 | <N> | done | <changed files> | <that commit's 12-char SHA> | n/a | n/a | n/a | <re-runs of step 4> |`,
+   a `### Phase <N> notes` block below the table whose first bullet is `- inline: <one
+   line — what was changed>`, the Phases row `complete`, and `current-phase` advanced
+   (`done` after the last phase). Commit the ledger — `supervise(<plan-name>): phase <N>
+   complete` — and return `RESULT: done` with both SHAs.
+6. If the phase proves not to be inline — it needs more than the listed files, has work
+   worth splitting, or still fails its Definition of Done after two fixes — restore the
+   tree (`git checkout -- .`, and delete any file you created), append a Revisions row
+   `<N> | inline | <why it is not inline> | decomposed`, and run the phase the normal
+   way from section 1 as if the mode line were absent. A `MANUAL` item, or a `dod` item
+   honest work cannot satisfy, is handled as in section 5.
 
 ## Worktree & merge mechanics
 

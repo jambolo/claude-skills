@@ -1,6 +1,6 @@
 ---
 name: worker
-version: 3.0.0
+version: 3.1.0
 model: sonnet
 effort: medium
 maxTurns: 80
@@ -75,7 +75,14 @@ running in their own worktrees at the same time. Therefore:
    with `status: missing-base`, commit it alone, and return. Never fetch, merge, rebase,
    cherry-pick, or otherwise "repair" a base — a missing prerequisite is the supervisor's
    problem and your only job is to detect it.
-3. **Do the actions**, in order, touching only `files_in_scope`. Plain file operations
+3. **Apply verbatim content.** If the step file has an `apply` field, run
+   `bash $HOME/.claude/skills/pipeline-tools/scripts/step-apply.sh --worktree <worktree> --step <step-file>`
+   once, before any action. It writes the step's exact content into the files and prints
+   `APPLIED <n> operation(s)`. Never type, paste, or re-create that content yourself, and
+   never edit the files it wrote unless an action says so. If it prints `FAIL`, nothing
+   was written: do not apply the content by hand — go to step 5 with `status: fail` and
+   its `DEFECT` lines under `deviations`.
+3a. **Do the actions**, in order, touching only `files_in_scope`. Plain file operations
    (`rm`, then `git -C <worktree> add -A <paths>`) over `git rm` / `git mv`. If an action is
    impossible as written, do the honest nearest thing, and record the difference under
    `deviations`. If it cannot be done at all within scope, stop and report `status: fail`.

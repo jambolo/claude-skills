@@ -62,49 +62,49 @@
     },
     {
       "name": "lead-developer",
-      "version": "3.0.2",
+      "version": "3.1.0",
       "kind": "skill",
       "path": "project-management/lead-developer",
       "family": "project-management"
     },
     {
       "name": "decomposer",
-      "version": "4.1.0",
+      "version": "5.0.0",
       "kind": "agent",
       "path": "project-management/decomposer",
       "family": "project-management"
     },
     {
       "name": "planner",
-      "version": "4.0.2",
+      "version": "5.0.1",
       "kind": "agent",
       "path": "project-management/planner",
       "family": "project-management"
     },
     {
       "name": "supervisor",
-      "version": "4.1.1",
+      "version": "4.2.0",
       "kind": "agent",
       "path": "project-management/supervisor",
       "family": "project-management"
     },
     {
       "name": "worker",
-      "version": "3.0.0",
+      "version": "3.1.0",
       "kind": "agent",
       "path": "project-management/worker",
       "family": "project-management"
     },
     {
       "name": "worker-lite",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "kind": "agent",
       "path": "project-management/worker-lite",
       "family": "project-management"
     },
     {
       "name": "pipeline-tools",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "kind": "skill",
       "path": "project-management/pipeline-tools",
       "family": "project-management"

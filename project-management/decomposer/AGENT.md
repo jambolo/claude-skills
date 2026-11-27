@@ -1,6 +1,6 @@
 ---
 name: decomposer
-version: 4.1.0
+version: 5.0.0
 model: opus
 effort: medium
 tools: Read, Write, Edit, Grep, Glob, Bash
@@ -125,6 +125,9 @@ A sibling's `needs-human` propagates: forward its text verbatim inside your own
   assuming earlier ones are done.
 - A **step** is an atomic unit within a phase, run by one worker. Co-phase steps run in
   **parallel** wherever dependencies and file scopes allow.
+- A phase the roadmap marks `- **Mode:** inline` has no steps and no decomposer run: the
+  supervisor does the whole phase itself, in one commit, checked by the phase Definition
+  of Done. The planner sets the mode; every other phase is decomposed.
 
 **Integration model**
 
@@ -216,6 +219,8 @@ commentary only.
     <the distilled slice of the brief + roadmap this worker needs, assuming zero
     other knowledge; everything earlier steps produced is named by its concrete
     path>
+- apply: |                     # OPTIONAL — verbatim content, applied by step-apply.sh;
+    <operations>               #   see Verbatim content. Omit the field when there is none
 - actions: |
     <concrete, ordered instructions, as close to executable as possible. If depends_on
     is non-empty, the FIRST action asserts that each dependency's key artifact exists
@@ -284,7 +289,48 @@ pipeline's dominant cost (Opus writes the code, Sonnet retypes it, Opus verifies
 Embed exact verbatim content only where a plausible-looking variant would be silently
 wrong — sign/perspective conventions, exact formulas, delicate API contracts — and say
 in `context` why it is verbatim. A step that is entirely verbatim content plus its check
-is a `lite` step.
+is a `lite` step, and its content goes in `apply` (see Verbatim content).
+
+**Verbatim content.** Exact content never goes into `actions` for a worker to retype:
+a model that copies text by typing it can change it. Put it in the step's `apply` block,
+which `step-apply.sh` applies byte for byte, keeping each file's line endings:
+
+```
+- apply: |
+    @@ replace <path>
+    
+    <text that occurs exactly once in the file — part of a line, or several lines>
+    
+    <its replacement>
+    @@ insert-after <path>
+    
+    <one line, or a fragment found in exactly one line of the file>
+    
+    <the lines to insert directly after that line>
+    @@ create <path>
+    
+    <the whole new file>
+    @@ end
+```
+
+Also `@@ insert-before <path>` (same parts as `insert-after`), `@@ append <path>`
+(`` only), and `@@ create <path> eol=crlf` for a new CRLF file. Every line between
+two directives is content exactly as written — no decoration, no blank separator lines; a
+content line that itself starts with `@` is written `\@...`. The block ends with
+`@@ end`. Operations on one file apply in order, and nothing is written unless all apply.
+
+- The worker runs `step-apply.sh` before `actions` whenever the step has an `apply`
+  block — do not tell it to, do not repeat the content in `actions`, and write no
+  instructions about line endings, wrapping, or how to type the text.
+- Dry-run it against the current tree before committing the step:
+  `bash $HOME/.claude/skills/pipeline-tools/scripts/step-apply.sh --worktree <repo> --step <step file> --check`
+  prints `CHECKED <n> operation(s)` and, per file, `FILE <path> lines=<n> md5=<md5 of the
+  result with LF line endings>` — use those figures in `acceptance_expect` instead of
+  computing them yourself. A `FAIL` names the operation and why. (A step whose `apply`
+  edits a file an earlier pending step creates cannot be dry-run; keep its anchors to
+  text that earlier step's own `apply` block contains.)
+- A step whose whole work is its `apply` block is `tier: lite` with `actions` reduced to
+  `1. Nothing beyond the apply block.`
 
 **Parallelism rule.** Steps whose dependencies are satisfied at the same time run
 concurrently, each in its own git worktree. Their `files_in_scope` **must be pairwise
@@ -314,8 +360,13 @@ Your prompt names `<plan-name>`, `artifacts-dir`, the working branch, and the **
 number**, and may carry a **revision note**. Read, in order:
 
 1. `<plan-name>-brief.md` — the goal, context, constraints, project Definition of Done.
-2. `<plan-name>-roadmap.md` — the **target phase**: its objective, scope, and phase
-   Definition of Done (a `dod` block). Your steps must collectively satisfy it.
+2. The **target phase** of the roadmap — run
+   `bash $HOME/.claude/skills/pipeline-tools/scripts/phase-context.sh --roadmap <artifacts-dir>/<plan-name>-roadmap.md --phase <N>`.
+   It prints the roadmap's strategy preamble and the target phase's section alone: its
+   objective, scope, and phase Definition of Done (a `dod` block). Your steps must
+   collectively satisfy it. Do NOT Read the roadmap file itself — the other phases'
+   sections are not your input, and everything you load is carried through every later
+   turn. Exit 2 (no roadmap, or no `## Phase <N>` heading) → `RESULT: failed`.
 3. `<plan-name>-ledger.md` — the actual current state (completed steps, their output files
    and commit SHAs). This matters most when revising.
 

@@ -1,6 +1,6 @@
 ---
 name: lead-developer
-version: 3.0.2
+version: 3.1.0
 description: >
   Top stage of the project-management family, sitting above the planner →
   decomposer → supervisor pipeline. Performs the role of a lead developer: turns a
@@ -277,6 +277,9 @@ uses, and duration as the Agent tool reported them (`n/a` for any it did not).
 
 **2. Implement.** Read the roadmap's phases. For each phase `k` in order:
 
+  0. If the roadmap's section for phase `k` carries `- **Mode:** inline`, skip step 1:
+     the supervisor does an inline phase itself, and the Events row records `n/a` for
+     the decomposer.
   1. Spawn the **`decomposer` agent** (`subagent_type: decomposer`, `run_in_background: false`): "decompose phase
      `k` of `<project-name>-m<n>`". On `needs-amendment`, spawn the `planner` with the
      note, then re-spawn the decomposer (see the return protocol). Verify the step

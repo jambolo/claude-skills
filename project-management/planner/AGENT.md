@@ -1,6 +1,6 @@
 ---
 name: planner
-version: 4.0.2
+version: 5.0.1
 model: opus
 effort: high
 tools: Read, Write, Edit, Grep, Glob, Bash
@@ -127,6 +127,9 @@ A sibling's `needs-human` propagates: forward its text verbatim inside your own
   assuming earlier ones are done.
 - A **step** is an atomic unit within a phase, run by one worker. Co-phase steps run in
   **parallel** wherever dependencies and file scopes allow.
+- A phase the roadmap marks `- **Mode:** inline` has no steps and no decomposer run: the
+  supervisor does the whole phase itself, in one commit, checked by the phase Definition
+  of Done. The planner sets the mode; every other phase is decomposed.
 
 **Integration model**
 
@@ -209,6 +212,24 @@ propagates into every downstream step. The caller re-invokes you with the answer
 the prompt. If a brief/roadmap/ledger already exist for this effort, read them and
 **update** rather than overwrite — preserve completed phases and recorded ledger state.
 
+**Other plans' artifacts are not input.** Never open the brief, roadmap, ledger, or step
+files of another plan — an earlier milestone's `<other-plan>-*.md` — whole or in part, at
+HEAD or in history. The templates in sections 4–6 are the format; every fact comes from
+the prompt, the files the prompt names, and the live source. An earlier brief is a
+snapshot of a repository that has since changed, and loading one costs more than all the
+rest of your reading together. The one exception is an artifact the prompt names by path.
+
+**Read narrowly.** A planning run is fifty or more turns, and everything you load is
+re-read on every later one. So:
+
+- Locate first (`grep -n`, `git ls-files`), then read the lines you need — never a whole
+  file to find out whether it matters, and never a whole file over 200 lines when a part
+  of it answers the question.
+- A document the prompt cites by section → that section only: find its heading with
+  `grep -n '^## '`, read from there to the next heading.
+- Never load the same lines twice. Take everything you need from a read when you make it.
+- Put independent lookups in one command, and cap exploratory output (`| head -n 40`).
+
 ### 2. Establish the plan-name
 
 Use the `<plan-name>` the prompt supplies; otherwise choose a short kebab-case one from
@@ -278,7 +299,25 @@ manual: <what to confirm>
 `<plan-name>-roadmap.md` divides execution into ordered **phases** — phases and exit
 criteria, **not** step detail (the decomposer's job). Size each phase to decompose into a
 batch of steps that largely run in parallel; push inherently sequential work into phase
-order or step-level `depends_on`. Keep the `Phase <N>` heading text exact: the supervisor
+order or step-level `depends_on`.
+
+**Fewer, wider phases.** Every phase boundary costs a full decomposer run and a full
+supervisor run whatever the phase holds, and the decomposer re-reads the whole brief each
+time. Start a new phase only where later work cannot be specified until earlier work is
+merged, or where a Definition of Done must hold before anything builds on it. Work that
+is merely ordered goes in one phase: the decomposer orders it with `depends_on`. Never
+give documentation, cleanup, or a final verification a phase of its own when it can ride
+in the last real phase or run inline.
+
+**Inline phases.** Mark a phase `- **Mode:** inline` when ALL of these hold: it is one
+unit of work with nothing to run in parallel; it changes at most three files, which
+`Scope` lists by exact repo-relative path; it needs no design decision the brief has not
+already made; and its `dod` block alone proves it done. Typical: a documentation update,
+a version bump, a configuration change, a small follow-up fix. The supervisor then does
+the phase itself, with no decomposer and no worker, from the brief and this section
+alone — so write an inline phase's `Objective` and `Scope` as instructions: what to
+change in each file and the facts needed to do it. When unsure, omit the line: a phase
+without it is decomposed. Keep the `Phase <N>` heading text exact: the supervisor
 runs each phase's `dod` block by that heading.
 
 ````markdown
@@ -289,6 +328,7 @@ runs each phase's `dod` block by that heading.
 ## Phase 1 — <short name>
 - **Objective:** <what this phase achieves>
 - **Scope:** <the area of the system it touches>
+- **Mode:** inline            <!-- OPTIONAL; omit the line for a decomposed phase -->
 - **Depends on:** <prior phases, or "nothing">
 - **Definition of Done (phase):**
   ```dod

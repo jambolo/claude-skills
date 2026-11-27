@@ -97,6 +97,16 @@ expect_out "phase 1 DoD passes" "DOD PASS 2/2" bash "$here/dod-run.sh" --file "$
 expect_out "phase 2 DoD fails before phase 2" "DOD FAIL" bash "$here/dod-run.sh" --file "$repo/docs/smoke-roadmap.md" --heading "Phase 2" --cwd "$repo"
 expect_exit "dod-run exits 1 on FAIL" 1 bash "$here/dod-run.sh" --file "$repo/docs/smoke-roadmap.md" --heading "Phase 2" --cwd "$repo"
 
+echo "== phase-context"
+pc="$(bash "$here/phase-context.sh" --roadmap "$repo/docs/smoke-roadmap.md" --phase 2 2>&1 || true)"
+grep -qF "phase 2 of 2" <<<"$pc" && ok "phase-context: header counts the phases" || bad "phase-context: header" "$pc"
+grep -qF "# smoke — Roadmap" <<<"$pc" && ok "phase-context: preamble kept" || bad "phase-context: preamble missing" "$pc"
+grep -qF "## Phase 2" <<<"$pc" && ok "phase-context: target phase printed" || bad "phase-context: target phase missing" "$pc"
+! grep -qF "## Phase 1" <<<"$pc" && ok "phase-context: other phase left out" || bad "phase-context: other phase printed" "$pc"
+grep -qF "bash test/run.sh" <<<"$pc" && ok "phase-context: phase dod block kept" || bad "phase-context: dod block missing" "$pc"
+expect_exit "phase-context: missing phase exits 2" 2 bash "$here/phase-context.sh" --roadmap "$repo/docs/smoke-roadmap.md" --phase 9
+expect_exit "phase-context: missing roadmap exits 2" 2 bash "$here/phase-context.sh" --roadmap "$repo/docs/none.md" --phase 1
+
 echo "== wave-create gates"
 git -C "$repo" checkout -q -b side
 git -C "$repo" commit -q --allow-empty -m "side commit"
@@ -315,6 +325,78 @@ EOF
 expect_out "bench-summary averages the baseline" "baseline                 smoke                   2     2.0000      200.0     100%" bash "$here/bench-summary.sh" "$tmp/results.tsv"
 expect_out "bench-summary reports the variant's DoD rate" "x4-sonnet-sup            smoke                   1     0.5000       50.0       0%" bash "$here/bench-summary.sh" "$tmp/results.tsv"
 expect_exit "bench-summary exits 2 on a missing file" 2 bash "$here/bench-summary.sh" "$tmp/none.tsv"
+
+# --- step-apply.sh ---
+ap="$tmp/apply"; mkdir -p "$ap/sub"
+printf 'one\r\ntwo alpha\r\nthree\r\n' >"$ap/crlf.txt"
+printf 'a\nb\n' >"$ap/lf.txt"
+cat >"$ap/step.md" <<'STEP'
+# Step 9a
+
+- id: 9a
+- files_in_scope:
+    - crlf.txt
+- apply: |
+    @@ replace crlf.txt
+    @old
+    alpha
+    @new
+    beta
+    @@ insert-after crlf.txt
+    @anchor
+    two
+    @text
+    \@two-and-a-half
+
+    @@ insert-before lf.txt
+    @anchor
+    b
+    @text
+    a2
+    @@ append lf.txt
+    @text
+    c
+    @@ create sub/new.txt eol=crlf
+    @text
+    n1
+    @@ end
+- acceptance_cmd: |
+    true
+STEP
+expect_out "step-apply --check reports the result" "FILE lf.txt lines=4 md5=$(printf 'a\na2\nb\nc\n' | md5sum | cut -c1-32)" bash "$here/step-apply.sh" --worktree "$ap" --step "$ap/step.md" --check
+[[ ! -e "$ap/sub/new.txt" && "$(cat "$ap/lf.txt")" == $'a\nb' ]] && ok "step-apply --check writes nothing" || bad "step-apply --check wrote files"
+expect_out "step-apply applies every operation" "APPLIED 5 operation(s)" bash "$here/step-apply.sh" --worktree "$ap" --step "$ap/step.md"
+[[ "$(od -An -c "$ap/crlf.txt" | tr -d ' \n')" == 'one\r\ntwobeta\r\n@two-and-a-half\r\n\r\nthree\r\n' ]] && ok "step-apply keeps CRLF and unescapes a leading @" || bad "step-apply crlf result" "$(od -c "$ap/crlf.txt")"
+[[ "$(od -An -c "$ap/sub/new.txt" | tr -d ' \n')" == 'n1\r\n' ]] && ok "step-apply creates a CRLF file in a new directory" || bad "step-apply create" "$(od -c "$ap/sub/new.txt")"
+expect_out "step-apply refuses a second run" "DEFECT 1 crlf.txt: @old occurs 0 times" bash "$here/step-apply.sh" --worktree "$ap" --step "$ap/step.md"
+expect_exit "step-apply exits 1 on a defect" 1 bash "$here/step-apply.sh" --worktree "$ap" --step "$ap/step.md"
+[[ "$(cat "$ap/lf.txt")" == $'a\na2\nb\nc' ]] && ok "step-apply writes nothing when any operation fails" || bad "step-apply partial write" "$(cat "$ap/lf.txt")"
+sed 's/^    @@ end$//' "$ap/step.md" >"$ap/noend.md"
+expect_out "step-apply needs @@ end" "does not end with" bash "$here/step-apply.sh" --worktree "$ap" --step "$ap/noend.md"
+printf -- '- id: 9b\n- apply: |\n    @@ append ../x.txt\n    @text\n    z\n    @@ end\n' >"$ap/esc.md"
+expect_out "step-apply rejects a path outside the worktree" "path must be repo-relative" bash "$here/step-apply.sh" --worktree "$ap" --step "$ap/esc.md"
+printf -- '- id: 9c\n- actions: |\n    none\n' >"$ap/none.md"
+expect_exit "step-apply exits 2 without an apply block" 2 bash "$here/step-apply.sh" --worktree "$ap" --step "$ap/none.md"
+
+echo "== phase-ready"
+reg5="$tmp/reg5"; mkreg "$reg5"
+printf -- '- bootstrap: none\n' | bash "$here/steps-register.sh" --repo "$reg5" --plan smoke --phase 1 --ledger docs/smoke-ledger.md --notes - 1a 1b >/dev/null
+bash "$here/steps-register.sh" --repo "$reg5" --plan smoke --phase 2 --ledger docs/smoke-ledger.md 2a 2b >/dev/null
+pr() { bash "$here/phase-ready.sh" --repo "$reg5" --plan smoke --ledger docs/smoke-ledger.md --phase "$1" 2>&1 || true; }
+out="$(pr 1)"
+grep -qxF "PHASE 1 steps=2 done=0 pending=2" <<<"$out" && ok "phase-ready: phase summary" || bad "phase-ready: summary" "$out"
+grep -qxF "READY 1b route=mechanical tier=lite ancestors=none" <<<"$out" && ok "phase-ready: independent step is ready" || bad "phase-ready: ready line" "$out"
+grep -qF "PLAN working-branch=" <<<"$out" && ok "phase-ready: plan fields printed" || bad "phase-ready: plan line" "$out"
+grep -qF -- "- bootstrap: none" <<<"$out" && ok "phase-ready: phase notes printed" || bad "phase-ready: notes" "$out"
+! grep -qF "Phase 2 notes" <<<"$out" && ok "phase-ready: other phase's notes left out" || bad "phase-ready: other notes printed" "$out"
+out="$(pr 2)"
+grep -qxF "WAITING 2a on=1a,1b" <<<"$out" && ok "phase-ready: dependent step waits" || bad "phase-ready: waiting line" "$out"
+sed -i 's/^| 1a | 1 | pending | \(.*\) |  |  |  |  |  |$/| 1a | 1 | done | \1 | aaaaaaaaaaaa | 1 | 1 | 1 | 0 |/; s/^| 1b | 1 | pending | \(.*\) |  |  |  |  |  |$/| 1b | 1 | done | \1 | bbbbbbbbbbbb | 1 | 1 | 1 | 0 |/' "$reg5/docs/smoke-ledger.md"
+out="$(pr 2)"
+grep -qxF "READY 2a route=mechanical tier=standard ancestors=aaaaaaaaaaaa,bbbbbbbbbbbb" <<<"$out" && ok "phase-ready: ready once dependencies are done, with their commits" || bad "phase-ready: ancestors" "$out"
+grep -qxF "DONE 1a aaaaaaaaaaaa" <<<"$(pr 1)" && ok "phase-ready: done step shows its commit" || bad "phase-ready: done line" "$(pr 1)"
+rm "$reg5/docs/smoke-2b.md"
+expect_exit "phase-ready: missing step file exits 2" 2 bash "$here/phase-ready.sh" --repo "$reg5" --plan smoke --phase 2 --ledger docs/smoke-ledger.md
 
 echo
 echo "selftest: $pass passed, $fail failed"
