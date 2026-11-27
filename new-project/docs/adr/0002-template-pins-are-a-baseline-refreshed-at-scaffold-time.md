@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-06-09
-**Commits:** ed4d9ac, 646403b, e5badcf, 167878f, c5577ac
+**Commits:** ed4d9ac, 646403b, e5badcf, 167878f, c5577ac, 7cb1c8f
 
 ## Context
 
@@ -37,6 +37,7 @@ Template pins are a current-as-of-authoring baseline, never the authority. Befor
 - Templates in the repo are allowed to drift; correctness is established at scaffold time, so a template change is not needed merely because an action released a new major.
 - Pinning to the major (`@v6`) rather than the exact tag trades reproducibility for automatic patch updates; FetchContent pins deliberately do not make that trade.
 - A refresh can cross a major and break the template ("If this bumps tauri to a new major … expect template drift — fix what the compiler reports"); the skill accepts that as part of scaffolding.
+- 7cb1c8f added a second pin refreshed from the local toolchain rather than upstream: the upper bound of the C++ `cmake_minimum_required(VERSION <floor>...<max>)` range is raised to the local `cmake --version` when that is newer, never lowered, and left alone when `cmake` is absent; the floor is never touched — see [0010](0010-cpp-templates-target-current-cmake.md).
 
 ## Alternatives considered
 

@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-09-24
-**Commits:** 66dbede
+**Commits:** 66dbede, 9b1b81c
 **Supersedes:** [0006](0006-orphans-are-reported-not-deleted-except-superseded.md)
 
 ## Context
@@ -21,6 +21,7 @@ Installed skills and agents that the manifest does not own are out of scope: the
 - The report header and the JSON `orphans` contents changed, a breaking output-format change: skill-version-check went to 4.0.0.
 - Unowned items are still never deleted — the destructive path stays the narrow, name-derived `superseded` case.
 - Both ports must apply the same filter and compute the `superseded` label identically.
+- 9b1b81c added a second exception: an installed item matching a tombstone in the manifest's `removed` array is reported as a `removed` leftover and may be deleted with confirmation, and the section was renamed from **Superseded leftovers** to **Leftovers** — see [0010](0010-removals-are-tombstones-in-the-manifest.md).
 
 ## Alternatives considered
 

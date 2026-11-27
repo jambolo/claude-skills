@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-21
-**Commits:** 7f7a7ca, 5cde06f
+**Commits:** 7f7a7ca, 5cde06f, ea969b0, c262cb3
 
 ## Context
 
@@ -29,6 +29,8 @@ The manifest-vs-installed comparison is implemented as a bundled script, not as 
 - The awk fallback parser is coupled to the manifest staying a flat array of flat objects — nesting an entry would silently break the no-`jq` path while the `jq` path keeps working.
 - `skill-version-check` is the only leaf in the repo with a `scripts/` directory, which is why Sync must mirror the whole leaf folder and preserve the `+x` bit rather than copying `SKILL.md` alone.
 - The LF pin exists because the authoring machine is Windows; without it a checkout would ship `#!/usr/bin/env bash\r` and fail on every POSIX host.
+- Since ea969b0 the same two-port arrangement is repeated in `script-version-check` ([0009](0009-script-repos-get-a-sibling-skill-not-a-third-kind.md)), so the "only leaf with a `scripts/` directory" statement above describes the state before that commit, and shared fixes land in four scripts.
+- The LF pin covers the scripts' own bytes, not their inputs: c262cb3 fixed both bash ports to strip `\r` from `jq` output, because the native Windows `jq.exe` ends lines with `\r\n` and the stray `\r` ended up in the last field (`kind`), failing the kind check. The bash ports have to tolerate CRLF from tools they call when run under Git Bash on Windows.
 
 ## Alternatives considered
 

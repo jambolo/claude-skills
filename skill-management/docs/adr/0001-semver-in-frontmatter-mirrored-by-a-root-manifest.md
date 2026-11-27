@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-21
-**Commits:** 7f7a7ca, 5cde06f
+**Commits:** 7f7a7ca, 5cde06f, ea969b0, 9b1b81c
 
 ## Context
 
@@ -31,6 +31,7 @@ Every `SKILL.md` and `AGENT.md` carries a semver `version:` directly under `name
 - Adding a skill means adding a manifest entry; forgetting one makes the skill invisible to `skill-version-check` even though it exists in the repo.
 - `path` in the manifest means the family folders stay purely organizational — moving a leaf between families is a manifest edit, not a rename of the installed artifact.
 - Skills that predate 7f7a7ca are already installed without a `version:`, which is why `UNVERSIONED` exists as a distinct status rather than being treated as an error.
+- The manifest was renamed from `skills-manifest.json` to `manifest.json` in ea969b0 ([0009](0009-script-repos-get-a-sibling-skill-not-a-third-kind.md)), and since 9b1b81c it also carries a hand-maintained `removed` array that is not mirrored from frontmatter ([0010](0010-removals-are-tombstones-in-the-manifest.md)).
 
 ## Alternatives considered
 

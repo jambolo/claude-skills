@@ -11,10 +11,14 @@ Decisions that shape the `new-*-project` scaffolders, numbered in the order they
 | [0005](0005-idempotent-partial-setup-mode.md) | Every scaffolder is idempotent and finishes a partially set-up project | Accepted | 2026-07-09 | — |
 | [0006](0006-act-validation-is-optional-and-reported.md) | Local workflow validation with act is optional, scoped to runnable jobs, and reported | Accepted | 2026-07-09 | — |
 | [0007](0007-publishing-jobs-follow-scaffold-kind.md) | Publishing jobs (docs, coverage, CD release) follow the scaffold's kind | Accepted | 2026-07-09 | — |
+| [0008](0008-scaffold-commit-messages-are-exact-no-attribution-trailers.md) | Scaffold commit messages are exactly the ones the skill gives: no attribution trailers | Accepted | 2026-10-16 | — |
+| [0009](0009-cpp-builds-are-driven-by-a-committed-cmakepresets-json.md) | C++ scaffolds commit a `CMakePresets.json`, and CI runs CMake only through it | Accepted | 2026-11-24 | — |
+| [0010](0010-cpp-templates-target-current-cmake.md) | C++ templates target current CMake: a 3.28 floor for executables, 4.5 for libraries, built-in features over hand-rolled ones | Accepted | 2026-11-24 | — |
+| [0011](0011-cpp-scaffolds-ship-a-clang-format.md) | C++ scaffolds ship a `.clang-format` so the CI format check has a stated style | Accepted | 2026-11-26 | — |
 
 ## Reversed designs
 
-No ADR is superseded, but several first-pass designs were reversed by later commits and are recorded under "Alternatives considered" in the ADR that replaced them:
+No ADR is superseded, but several earlier designs were reversed by later commits and are recorded under "Alternatives considered" in the ADR that replaced them:
 
 | Initial design | Commit | Replaced by |
 | --- | --- | --- |
@@ -25,6 +29,10 @@ No ADR is superseded, but several first-pass designs were reversed by later comm
 | Fail on an existing directory | ed4d9ac, 646403b | [0005](0005-idempotent-partial-setup-mode.md) (ba697a6) |
 | act verification mandatory | ed4d9ac, 646403b | [0006](0006-act-validation-is-optional-and-reported.md) (ba697a6) |
 | All CI jobs always shipped, user deletes | ed4d9ac | [0007](0007-publishing-jobs-follow-scaffold-kind.md) (0707970, for kinds) |
+| Commits carry the session's default `Co-Authored-By:` trailer | implicit until 3a67c8b | [0008](0008-scaffold-commit-messages-are-exact-no-attribution-trailers.md) (3a67c8b) |
+| Raw `cmake -S . -B build -D…` flags in every C++ job; `CMakePresets.json` gitignored | ba697a6, 0707970 | [0009](0009-cpp-builds-are-driven-by-a-committed-cmakepresets-json.md) (7cb1c8f) |
+| CMake 3.23 floor, explicit policy lines, vendored `Doxyfile.in` | 646403b, 0707970 | [0010](0010-cpp-templates-target-current-cmake.md) (7cb1c8f) |
+| C++ format check against clang-format's LLVM fallback style | ba697a6 | [0011](0011-cpp-scaffolds-ship-a-clang-format.md) (5af7900) |
 
 ## Commit key
 
@@ -38,3 +46,6 @@ No ADR is superseded, but several first-pass designs were reversed by later comm
 | 0707970 | 2026-07-09 | new-cpp-project: Added code coverage and docs in CI/CD for libraries only. |
 | 167878f | 2026-07-26 | Updated new-project SKILL.md and CI/CD templates to use latest Node.js LTS version |
 | c5577ac | 2026-07-26 | Added new-tauri-project skill |
+| 3a67c8b | 2026-10-16 | Address 2026-10-16 ultrareview findings; misc skill updates (new-project: removed Claude attribution in commit messages) |
+| 7cb1c8f | 2026-11-24 | new-project: Added the latest bells and whistles to the CMakeLists.txt templates (minimum version is 4.5) |
+| 5af7900 | 2026-11-26 | new-project: new-cpp-project now scaffolds a .clang-format (Google style, 120 columns, 4-space indent) |

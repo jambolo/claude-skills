@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-07-09
-**Commits:** ed4d9ac, 0707970, ba697a6, c5577ac
+**Commits:** ed4d9ac, 0707970, ba697a6, c5577ac, 7cb1c8f
 
 ## Context
 
@@ -31,6 +31,7 @@ A scaffold's kind — library/package versus executable/application — decides 
 - A single `ci.yml` template per skill holds the superset of jobs; the skill edits the copy rather than maintaining two templates (the C++ CD template is the one kind-specific file, named `LIBRARY_TEMPLATE_cd.yml` to say so).
 - Rust and TypeScript default to the library tier, so an application built with them has to remove `docs` by hand; `advent-of-code`'s delegation note for Rust ("skip `cd.yml`, drop `docs`/`coverage` CI jobs") exists because of this default.
 - "Adjust per project" sections are an obligation of every skill: each lists what was included or omitted by kind and how to flip it.
+- Since 7cb1c8f the C++ kind rule also trims `CMakePresets.json`: an executable loses the `coverage`, `docs`, and `ci-verify-headers` presets along with the `docs` and `coverage` jobs — see [0009](0009-cpp-builds-are-driven-by-a-committed-cmakepresets-json.md).
 
 ## Alternatives considered
 

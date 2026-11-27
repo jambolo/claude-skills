@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-06-09
-**Commits:** 2fd8754, ba697a6, e757c21
+**Commits:** 2fd8754, ba697a6, e757c21, 528c6df, 3a67c8b
 
 ## Context
 
@@ -29,6 +29,7 @@ The family `CLAUDE.md` (e757c21) restates this as the family's defining trait, a
 - Per-step commit discipline ("the seeded git history is intentional output") is inherited from the scaffolders and carried through Phase B, so a scaffolded AoC repo has one commit per artifact.
 - The bootstrap result is always single-target and must be restructured in Phase B step 1 ([0001](0001-common-library-plus-independent-per-day-entry-points.md)); CI installed by the scaffolder must be fixed up in step 5.
 - The README rewrite in Phase B step 2 is the one sanctioned exception to "Don't clobber existing work".
+- 528c6df made the hand-off explicit: the language's **Notes** cell is passed through the Skill tool's `args`, because "the bootstrap skill loads into this same context, so its own defaults will otherwise win over the AoC-specific overrides." 3a67c8b then corrected the TypeScript row to match `new-typescript-project` as it had become (creates its own folder, pnpm-only) — an instance of the coupling noted above.
 
 ## Alternatives considered
 

@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-06-09
-**Commits:** ed4d9ac, 646403b, e5badcf, ba697a6, 0707970, c5577ac
+**Commits:** ed4d9ac, 646403b, e5badcf, ba697a6, 0707970, c5577ac, 7cb1c8f
 
 ## Context
 
@@ -29,6 +29,7 @@ Every scaffolder ships its CI (and, where the scaffold kind warrants it, CD) as 
 - Generated repos assume git-flow branch names and GitHub-hosted runners; a project on `main` or without `develop` must edit the triggers and drop the back-merge.
 - The `docs` job requires GitHub Pages to be enabled and the `coverage` job a `CODECOV_TOKEN` secret; both are documented as setup obligations, and the `docs` job is listed under "Adjust per project" as removable.
 - Adding a language means authoring a template that fits the topology (same job names and gates), which keeps the act verification steps and the `advent-of-code` table notes ("drop `docs`/`coverage` CI jobs") valid across languages.
+- Since 7cb1c8f the C++ jobs keep the topology but hold no CMake flags: each runs a preset from the scaffolded `CMakePresets.json`, and the C++ workflow templates are copied verbatim — see [0009](0009-cpp-builds-are-driven-by-a-committed-cmakepresets-json.md).
 - Which jobs a scaffold actually keeps depends on its kind — see [0007](0007-publishing-jobs-follow-scaffold-kind.md).
 - Template action pins age; the refresh rule in [0002](0002-template-pins-are-a-baseline-refreshed-at-scaffold-time.md) exists because of this decision.
 - The CD version source is per language (`cargo get`, `node -p`, the `VERSION` line of `project()`); Tauri additionally has to keep `tauri.conf.json` and both `Cargo.toml`s in step with `package.json` by hand.

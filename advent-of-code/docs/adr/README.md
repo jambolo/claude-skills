@@ -8,6 +8,8 @@ Decisions that shape the `advent-of-code` skill, numbered in the order they were
 | [0002](0002-aoc-project-contract-stated-once-facts-vs-procedure.md) | The AoC project contract is stated once in the skill; generated CLAUDE.md holds facts, not procedure | Accepted | 2026-06-09 | — |
 | [0003](0003-scaffold-delegates-bootstrap-to-new-language-project-skills.md) | Scaffold delegates repo bootstrap to `new-<language>-project` skills, with an inline fallback | Accepted | 2026-06-09 | — |
 | [0004](0004-aoc-layout-researched-from-community-practice.md) | The AoC layout is researched from community practice, not hardcoded, and the sources are recorded | Accepted | 2026-06-09 | — |
+| [0005](0005-puzzle-inputs-are-not-republished-from-public-repos.md) | Every day has `input.txt` and `example.txt`; whether `input.txt` is committed is decided once, at scaffold | Accepted | 2026-08-24 | — |
+| [0006](0006-run-verifies-real-input-answers-only.md) | Run verifies real-input answers only: example runs, failed runs, and stub output never reach the answer table | Accepted | 2026-08-24 | — |
 
 ## Reversed designs
 
@@ -28,3 +30,5 @@ No ADR is superseded, but three initial designs from bb12e5f were reversed the s
 | ba697a6 | 2026-07-09 | Refactored the new-project skills … Added new-haskell-project skill |
 | e757c21 | 2026-07-30 | Cleaned up Claude.md (family CLAUDE.md created) |
 | a3a7d2f | 2026-08-22 | Renamed some poorly named skill operations. |
+| 528c6df | 2026-08-24 | advent-of-code: Cleaned up the skill |
+| 3a67c8b | 2026-10-16 | Address 2026-10-16 ultrareview findings; misc skill updates (advent-of-code: TypeScript delegation note corrected) |
